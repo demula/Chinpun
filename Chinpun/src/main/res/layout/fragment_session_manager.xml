@@ -1,0 +1,117 @@
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/session_manager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp">
+
+    <TextView
+            android:id="@+id/session_manager_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="left"
+            android:textSize="30dp"
+            android:text="@string/session_manager_title"/>
+
+    <TextView
+            android:id="@+id/session_manager_user_firstname"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="right"
+            android:textSize="20dp"
+            android:text=""/>
+
+    <TextView
+            android:id="@+id/session_manager_user_lastname"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="right"
+            android:textSize="20dp"
+            android:text=""/>
+
+    <TextView
+            android:id="@+id/session_manager_current_session_time"
+            android:layout_weight="1"
+            android:layout_width="wrap_content"
+            android:layout_height="0dp"
+            android:layout_gravity="center"
+            android:textSize="40dp"
+            android:textAlignment="center"
+            android:text="@string/session_time_default"/>
+    <TextView
+            android:id="@+id/session_manager_current_session_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textSize="15dp"
+            android:textAlignment="center"
+            android:text=""/>
+
+    <LinearLayout
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            android:id="@+id/session_manager_week_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:padding="5dp">
+
+        <TextView
+                android:id="@+id/session_manager_hours_week_label"
+                android:layout_weight="2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="right"
+                android:textSize="20dp"
+                android:textStyle="bold"
+                android:text="@string/session_manager_hours_week_label"/>
+
+        <TextView
+                android:id="@+id/session_manager_hours_week"
+                android:layout_weight="2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textSize="20dp"
+                android:textAlignment="center"
+                android:text="@string/session_manager_default_hours"/>
+    </LinearLayout>
+
+    <LinearLayout
+            xmlns:android="http://schemas.android.com/apk/res/android"
+            android:id="@+id/session_manager_month_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:padding="5dp">
+
+        <TextView
+                android:id="@+id/session_manager_hours_month_label"
+                android:layout_weight="2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="right"
+                android:textSize="20dp"
+                android:textStyle="bold"
+                android:text="@string/session_manager_hours_month_label"/>
+
+        <TextView
+                android:id="@+id/session_manager_hours_month"
+                android:layout_weight="2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textSize="20dp"
+                android:textAlignment="center"
+                android:text="@string/session_manager_default_hours"/>
+    </LinearLayout>
+
+    <Button
+            android:id="@+id/session_manager_button"
+            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:text="@string/start_session"/>
+</LinearLayout>

@@ -1,0 +1,40 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:0.5.+'
+    }
+}
+apply plugin: 'android'
+
+repositories {
+    mavenCentral()
+}
+
+android {
+    compileSdkVersion 18
+    buildToolsVersion "18.0.0"
+
+    defaultConfig {
+        minSdkVersion 7
+        targetSdkVersion 16
+
+        testPackageName "name.demula.chinpun.test"
+        testInstrumentationRunner "android.test.InstrumentationTestRunner"
+    }
+}
+
+dependencies {
+    compile 'com.android.support:support-v4:13.0.+'
+    //compile 'org.jsoup:jsoup:1.7.+'
+    //compile 'com.squareup.dagger:dagger:1.0.1'
+    //compile 'com.squareup.dagger:dagger-compiler:1.0.1'
+    instrumentTestCompile "org.objenesis:objenesis:1.0"
+    instrumentTestCompile "org.hamcrest:hamcrest-core:1.1"
+    instrumentTestCompile "org.mockito:mockito-core:1.9.5"
+    instrumentTestCompile "com.google.dexmaker:dexmaker:1.0"
+    instrumentTestCompile "com.google.dexmaker:dexmaker-mockito:1.0"
+
+    //instrumentTestCompile 'com.squareup:fest-android:1.0.5'
+}

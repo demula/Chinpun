@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+            android:title="@string/pref_account_cat"
+            android:key="pref_account_cat">
+        <EditTextPreference
+                android:key="pref_username"
+                android:title="@string/pref_username"
+                android:summary="@string/pref_username_summ"
+                android:defaultValue="jdemula"/>
+        <EditTextPreference
+                android:key="pref_password"
+                android:title="@string/pref_password"
+                android:summary="@string/pref_password_summ"
+                android:defaultValue="jdemula00"/>
+    </PreferenceCategory>
+</PreferenceScreen>
