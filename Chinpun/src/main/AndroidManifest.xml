@@ -16,19 +16,31 @@
             android:icon="@drawable/ic_launcher"
             android:theme="@android:style/Theme.Holo.Light.DarkActionBar">
 
+        <service
+                android:enabled="true"
+                android:name=".services.SessionManagerService">
+            <intent-filter>
+                <action android:name="name.demula.chinpun.UPDATE_USER"/>
+                <action android:name="name.demula.chinpun.START_SESSION"/>
+                <action android:name="name.demula.chinpun.UPDATE_SESSION"/>
+            </intent-filter>
+        </service>
         <activity
                 android:name=".activities.MainActivity"
                 android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
+                <action android:name="name.demula.chinpun.INFO_UPDATED"/>
+
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
         <receiver
-                android:name=".widgets.ChinpunWidgetProvider"
+                android:name=".widgets.ChinpunWidget"
                 android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+                <action android:name="name.demula.chinpun.INFO_UPDATED"/>
             </intent-filter>
             <meta-data
                     android:name="android.appwidget.provider"
