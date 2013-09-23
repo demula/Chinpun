@@ -14,9 +14,12 @@
   limitations under the License.
   -->
 
-<menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/action_update"
-          android:icon="@drawable/ic_action_refresh"
-          android:title="@string/action_update"
-          android:showAsAction="ifRoom|withText" />
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:chinpun="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_update"
+        android:icon="@drawable/ic_action_refresh"
+        android:title="@string/action_update"
+        chinpun:showAsAction="always"
+        android:showAsAction="always"/>
 </menu>

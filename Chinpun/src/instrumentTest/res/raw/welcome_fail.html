@@ -1,0 +1,4671 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<title>chinpun</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+
+<!-- Styles -->
+<!-- <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap-combined.min.css" rel="stylesheet"> -->
+<link href="/chinpun/resources/css/bootstrap-combined.min.css" rel="stylesheet">
+<link href="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/css/bootstrap-responsive.css"
+      rel="stylesheet">
+<link href="/chinpun/resources/css/styles.css" rel="stylesheet">
+<link href="/chinpun/resources/css/main.css" rel="stylesheet">
+<link href="/chinpun/resources/css/datatable-bootstrap.css" rel="stylesheet">
+<link href="http://www.eyecon.ro/bootstrap-datepicker/css/datepicker.css" rel="stylesheet"/>
+<link href="/chinpun/resources/css/jquery.mCustomScrollbar.css" rel="stylesheet"/>
+<link href="/chinpun/resources/css/fullcalendar.css" rel="stylesheet">
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.9.2/themes/base/jquery-ui.css">
+<link href="/chinpun/resources/css/timepicker.css" rel="stylesheet">
+
+<link href="/chinpun/resources/css/aperturaCierre.css" rel="stylesheet">
+<link href="/chinpun/resources/css/parking.css" rel="stylesheet">
+
+<link href="/chinpun/resources/css/jquery.ui.1.10.0.ie.css" rel="stylesheet">
+<link href="/chinpun/resources/css/jquery.ui.1.9.2.ie.css" rel="stylesheet">
+<link href="/chinpun/resources/css/jquery-ui-1.10.0.custom.css" rel="stylesheet">
+<link href="/chinpun/resources/css/jquery-ui-1.9.2.custom.css" rel="stylesheet">
+
+<!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+<!--[if lt IE 9]>
+<script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+<![endif]-->
+
+<!-- Le fav and touch icons -->
+<link rel="shortcut icon" href="/chinpun/img/icons/favicon.gif"/>
+
+<script type="text/javascript">
+	var validadorSesion;
+	var iconoNotificacion = null;
+	var celdaNotificacion = null;
+	var celdaAccionesNotificaciones = null;
+
+	var mes;
+	var dia;
+	var tipoMovimiento;
+	var idPlaza;
+
+	var typeheadPersonaApSeleccionado = false;
+
+	var permisoParking;
+
+	//A-Apertura C-Cierre B-Borrado
+	var aperturaArray = new Array(); // Array para almacenar los id de las aperturas
+	var cierreArray = new Array(); // Array para almacenar los id de los cierres
+
+	var constantes = {
+			msgSinAperturas : "Sin aperturas por el momento",
+			msgSinCierres : "Sin cierres por el momento"
+	};
+
+	function centrarModalApCierre() {
+		if($(window).width()>800){
+			$("#modal-apertura-cierre").css('left', ($(window).width()/2)-((680-560)/2) + 'px');
+			$("#modal-apertura-cierre").css('width','680px');
+		}
+		else{
+			$("#modal-apertura-cierre").css('left', '');
+			$("#modal-apertura-cierre").css('width','');
+		}
+	}
+
+	$(document).ready(function() {
+
+		$("span[rel=tooltip]").tooltip();
+
+		$('#').addClass('active');
+
+		inicializarAccionesListaNotificaciones();
+
+		$('#celda-actualizar, #celda-marcar-leidos').click(function(e) {
+			e.stopPropagation();
+		});
+
+		$('.row-leer, .row-refresh').mouseenter(function() {
+			if(celdaAccionesNotificaciones!=null) {
+				$(celdaAccionesNotificaciones).css('background-color', '#F2F2F2');
+			}
+			celdaAccionesNotificaciones = $(this);
+			$(this).css('background-color', '#E6E6E6');
+		});
+
+		$('.row-leer, .row-refresh').mouseout(function() {
+			$(this).css('background-color', '#F2F2F2');
+			celdaAccionesNotificaciones = null;
+		});
+
+		$('#validaciones').find('.ocultarValidaciones').on('click', hideValidaciones);
+		$('#validacionesMin').on('click',mostrarValidaciones);
+
+		if($('#estadoMenuLateral').val()=='false') {
+			$('#sidebar').css('display', 'none');
+			$('#content').attr('class', 'span12');
+		}
+
+		// ------------ Validación del formulario del modal de fin de sesión ------------
+		validadorSesion = $("#form-fin-sesion").validate({
+			rules:{
+				'select-proyecto-sesion':{requiredParam: '"Proyecto"'},
+			},
+	      	errorLabelContainer: "#validaciones div ul",
+	      	wrapper: "li",
+			errorClass:"warning",
+			validClass:"valid",
+			highlight: function(element, errorClass, validClass) {
+	            $(element).parents('.control-group:first').addClass("error").removeClass(validClass);
+	        },
+	        unhighlight: function(element, errorClass, validClass) {
+	        	$(element).parents('.control-group:first').removeClass("error").addClass(validClass);
+	        },
+		});
+
+		// ------------ Validación del formulario del modal de partes de trabajo ------------
+		validadorInforme = $("#form-informe-partesTrabajo").validate({
+			rules:{
+				'idProyecto': { requiredParam: '"Proyecto"' },
+				'idPersona': { requiredParam: '"Persona"' },
+				'meses': { requiredParam: '"Meses"' }
+			},
+		  	errorLabelContainer: "#validaciones div ul",
+		  	wrapper: "li",
+			errorClass:"warning",
+			validClass:"valid",
+			highlight: function(element, errorClass, validClass) {
+		        $(element).parents('.control-group:first').addClass("error").removeClass(validClass);
+		    },
+		    unhighlight: function(element, errorClass, validClass) {
+		    	$(element).parents('.control-group:first').removeClass("error").addClass(validClass);
+		    },
+		});
+
+
+		$("#datepicker-apertura-cierre").datepicker({
+
+			dateFormat:'dd/mm/yyyy',
+			beforeShowDay: asignarColor,
+
+			onChangeMonthYear: function (year, month, inst) {
+				mes = month;
+				consultarColor(mes);
+			},
+
+ 			onSelect: function(dateText, inst) {
+ 				var dateAsString = dateText; //primer parametrp de la funcion
+ 				var fecha = dateAsString.slice(0, dateAsString.length-4);
+ 				dia = fecha;
+
+
+ 				verAperturaCierre(fecha);
+
+
+ 				$('#idEstadoA').val('');
+ 				$('#idEstadoC').val('');
+ 				$('#nombreApertura').val('');
+ 				$('#idEstadoASup').val('');
+ 				$('#idEstadoCSup').val('');
+ 				$('#nombreAperturaSup').val('');
+ 				$('#observacionesApertura').val('');
+ 				$('#idPersonaApertura').val('');
+ 				$('#nombreCierre').val('');
+ 				$('#idPersonaAperturaSup').val('');
+ 				$('#nombreCierreSup').val('');
+ 				$('#observacionesCierre').val('');
+ 				$('#idPersonaCierre').val('');
+ 				$('#idPersonaCierreSup').val('');
+ 		   }
+		});
+
+		$("#datepicker-apertura-cierre-noticias").datepicker({
+
+			dateFormat:'dd/mm/yyyy',
+			beforeShowDay: asignarColor,
+
+			onChangeMonthYear: function (year, month, inst) {
+				mes = month;
+				consultarColorNoticias(mes);
+			},
+
+ 			onSelect: function(dateText, inst) {
+ 				var dateAsString = dateText;
+ 				var fecha = dateAsString.slice(0, dateAsString.length-4);
+ 				dia = fecha;
+ 				var parsedDate = $.datepicker.parseDate('dd/mm/yy', fecha);
+
+ 				//verAperturaCierre(fecha);
+ 				$('#idEstadoA').val('');
+ 				$('#idEstadoC').val('');
+ 				$('#nombreApertura').val('');
+ 				$('#idEstadoASup').val('');
+ 				$('#idEstadoCSup').val('');
+ 				$('#nombreAperturaSup').val('');
+ 				$('#observacionesApertura').val('');
+ 				$('#idPersonaApertura').val('');
+ 				$('#nombreCierre').val('');
+ 				$('#idPersonaAperturaSup').val('');
+ 				$('#nombreCierreSup').val('');
+ 				$('#observacionesCierre').val('');
+ 				$('#idPersonaCierre').val('');
+ 				$('#idPersonaCierreSup').val('');
+ 				verModalApertura(parsedDate);
+ 		   }
+		});
+
+		var dateD = $('#datepicker-apertura-cierre').datepicker("getDate");
+
+		mes = dateD.getMonth()+1;
+		dia = ordenarDia(dateD);
+		verAperturaCierre(dia);
+
+
+		$("#datepicker-parking").datepicker({
+			dateFormat:'dd/mm/yyyy',
+			beforeShowDay: asignarColorParking,
+			onChangeMonthYear: function (year, month, inst) {
+				mes = month;
+				//PARKING color mes
+				consultarColorParking(mes);
+			},
+			onSelect: function(dateText, inst) {
+ 				var dateAsString = dateText; //primer parametrp de la funcion
+ 				var fecha = dateAsString.slice(0, dateAsString.length-4);
+ 				dia = fecha;
+ 				//PARKING participantes sorteo
+ 				consultarParticipantesSorteo(dia);
+ 				//PARKING consulta plazas libres
+ 				$.post("/chinpun/horarios/parking/consultaPlazasDia", {dia: dia}, function(nombresParking) {
+ 					parking = nombresParking;
+ 					var diaActual = new Date();
+ 					var fecha_select = $( "#datepicker-parking" ).datepicker("getDate");
+ 					var i;
+ 					for(i=0; i<parking.length; i++){
+
+ 						var selector1 = '#plaza'+(i+1);
+ 						var selector2 = '#idPersonaPlaza'+(i+1);
+ 						$(selector1).parent().removeClass("parkingLibre");
+
+ 						if(nombresParking[i].persona != null){
+ 							$(selector1).text(nombresParking[i].persona.nombre+' '+nombresParking[i].persona.apellido1);
+ 							$(selector2).val(nombresParking[i].persona.idPersona);
+ 						}else{
+ 							$(selector1).text("Libre");
+ 							$(selector2).val("");
+ 							if(fecha_select.getDate() >= diaActual.getDate() && fecha_select.getMonth() >= diaActual.getMonth() && fecha_select.getFullYear() >= diaActual.getFullYear()){
+ 								$(selector1).parent().addClass("parkingLibre");
+ 							}else{
+ 								$(selector1).parent().removeClass("parkingLibre");
+ 							}
+ 						}
+ 					}
+ 					desactivaUsuariosParking();
+ 				});
+			}
+
+		});
+
+		$("#datepicker-parking-noticias").datepicker({
+			dateFormat:'dd/mm/yyyy',
+			beforeShowDay: asignarColorParking,
+			onChangeMonthYear: function (year, month, inst) {
+				mes = month;
+				//PARKING color mes
+				consultarColorParking(mes);
+			},
+			onSelect: function(dateText, inst) {
+				var dateAsString = dateText; //primer parametrp de la funcion
+ 				var fecha = dateAsString.slice(0, dateAsString.length-4);
+	 			verModalParking(fecha);
+			}
+		});
+
+		consultarColor(mes);
+
+		//PARKING consulta plazas libres
+		$.post("/chinpun/horarios/parking/consultaPlazasDia", {dia: dia}, function(nombresParking) {
+			parking = nombresParking;
+
+			var i;
+			for(i=0; i<parking.length; i++){
+
+				var selector1 = '#plaza'+(i+1);
+				var selector2 = '#idPersonaPlaza'+(i+1);
+
+				if(nombresParking[i].persona != null){
+					$(selector1).text(nombresParking[i].persona.nombre+' '+nombresParking[i].persona.apellido1);
+					$(selector2).val(nombresParking[i].persona.idPersona);
+				}
+			}
+		});
+
+		//PARKING color mes
+		consultarColorParking(mes);
+
+		//Carga las personas desde la BD al typeahead y la id del seleccionado en el hidden de la consulta
+
+		var typeheadPersonaSeleccionado = false;
+
+		$(".typeaheadConsulta").change(function() {
+			if($('#idPersonaConsulta').val()=='') {
+				$("#nombrePersonaConsulta").val('');
+			}
+			if(typeheadPersonaSeleccionado) {
+				typeheadPersonaSeleccionado = false;
+			} else {
+				$('#idPersonaConsulta').val('');
+				$("#nombrePersonaConsulta").val('');
+			}
+		});
+
+		$('.typeaheadConsulta').typeahead({
+			source:	function(query, process) {
+		        $.post('/chinpun/general/typeaheadPersonal', { query : query }, function (data) {
+		            var key = "";
+		            labels = [];
+		            mapped = {};
+		            $.each(data, function(i,persona) {
+		            	key = persona[1] + ' ' + persona[2] + ' ' + persona[3];
+		                mapped[key] = persona[0];
+		                labels.push(key);
+		            });
+		            process(labels);
+		        });
+		    },
+		    updater: function (item) {
+		        $('#idPersonaConsulta').val(mapped[item]);
+		        typeheadPersonaSeleccionado = true;
+		        return item;
+		    },
+		    items: 3
+		});
+
+		//Carga las personas desde la BD al typeahead y la id del seleccionado en el hidden de la consulta
+
+
+// 		$(".nombreApertura, .nombreCierre").change(function() {
+// 			setTimeout(function(){
+// 				if($(this).next().val()=='') {
+// 					$(this).val('');
+// 					if($(this).hasClass('nombreApertura')){
+// 						$(this).closest('.control-group').next().find('.observacionesApertura').val('');
+// 					}
+// 					if($(this).hasClass('nombreCierre')){
+// 						$(this).closest('.control-group').next().find('.observacionesCierre').val('');
+// 					}
+// 				}
+// 				if(typeheadPersonaApSeleccionado) {
+// 					typeheadPersonaApSeleccionado = false;
+// 				} else {
+// 					$(this).next().val('');
+// 					$(this).val('');
+// 					if($(this).hasClass('nombreApertura')){
+// 						$(this).closest('.control-group').next().find('.observacionesApertura').val('');
+// 					}
+// 					if($(this).hasClass('nombreCierre')){
+// 						$(this).closest('.control-group').next().find('.observacionesCierre').val('');
+// 					}
+// 				}
+// 				var num = $(this).attr('num');
+// 				if($(this).hasClass('nombreApertura')){
+// 					insertarNombreApertura(num, 1);
+// 				}
+// 				if($(this).hasClass('nombreCierre')){
+// 					insertarNombreCierre(num, 1);
+// 				}
+// 			},200);
+// 		});
+
+// 		$('#apertura .input-nombrePersonaApertura, #cierre .input-nombrePersonaCierre').change(function() {
+// 			$this=$(this);
+// 			setTimeout(function(){
+// 				if($this.next().val()=='' || $this.next().val()==null || $this.val()=='' || $this.val()==null) {
+// 					$this.val('');
+// 					actualizaApertCierr($this.attr('id'));
+// 					var num = $this.attr('num');
+// 					if((num==null||num=="")&&isNaN(parseInt(num))){
+// 						//vision diaria
+// 						if($this.hasClass('nombreApertura')){
+// 							$this.closest('.row-fluid').next().find('.observacionesApertura').val('');
+// 						}else if($this.hasClass('nombreCierre')){
+// 							$this.closest('.row-fluid').next().find('.observacionesCierre').val('');
+// 						}
+// 					}else{
+// 						//vision semanal
+// 						if($this.hasClass('nombreApertura')){
+// 							$this.closest('.control-group').next().find('.observacionesApertura').val('');
+// 						}else if($this.hasClass('nombreCierre')){
+// 							$this.closest('.control-group').next().find('.observacionesCierre').val('');
+// 						}
+// 					}
+// 				}
+// 			},200);
+// 		});
+
+// 		$('.observacionesApertura, .observacionesCierre').change(function() {
+// 			$this=$(this);
+// 			var num = $this.attr('num');
+// 			setTimeout(function(){
+// 				if($this.hasClass('observacionesApertura')){
+// 					if((num==null||num=="")&&isNaN(parseInt(num))){
+// 						//vision diaria
+// 						if($this.closest('.row-fluid').prev().find('.idPersonaA').val()=='' || $this.closest('.row-fluid').prev().find('.idPersonaA').val()==null) {
+// 							$this.val('');
+// 							alert('Inserte primero un usuario.');
+// 						}else{
+// 							typeheadPersonaApSeleccionado=true;
+// 							actualizaApertCierr($this.closest('.row-fluid').prev().find('.nombreApertura').attr('id'));
+// 						}
+// 					}else{
+// 						//vision semanal
+// 						if($this.closest('.control-group').prev().find('.idPersonaA').val()=='' || $this.closest('.control-group').prev().find('.idPersonaA').val()==null) {
+// 							$this.val('');
+// 							alert('Inserte primero un usuario.');
+// 						}else{
+// 							typeheadPersonaApSeleccionado=true;
+// 							actualizaApertCierr($this.closest('.control-group').prev().find('.nombreApertura').attr('id'));
+// 						}
+// 					}
+// 				}
+// 				if($this.hasClass('observacionesCierre')){
+// 					if((num==null||num=="")&&isNaN(parseInt(num))){
+// 						//vision diaria
+// 						if($this.closest('.row-fluid').prev().find('.idPersonaC').val()=='' || $this.closest('.row-fluid').prev().find('.idPersonaC').val()==null) {
+// 							$this.val('');
+// 							alert('Inserte primero un usuario.');
+// 						}else{
+// 							typeheadPersonaApSeleccionado=true;
+// 							actualizaApertCierr($this.closest('.row-fluid').prev().find('.nombreCierre').attr('id'));
+// 						}
+// 					}else{
+// 						//vision semanal
+// 						if($this.closest('.control-group').prev().find('.idPersonaC').val()=='' || $this.closest('.control-group').prev().find('.idPersonaC').val()==null) {
+// 							$this.val('');
+// 							alert('Inserte primero un usuario.');
+// 						}else{
+// 							typeheadPersonaApSeleccionado=true;
+// 							actualizaApertCierr($this.closest('.control-group').prev().find('.nombreCierre').attr('id'));
+// 						}
+// 					}
+// 				}
+// 			},200);
+// 		});
+
+
+		//PARKING participantes sorteo
+		consultarParticipantesSorteo(dia);
+
+		$(document).on('click', '#concursantes-tabla-parking div', function(){
+			var idUsuario = 91;
+			if($(this).attr('idPersona')==idUsuario){
+				anulaSorteo($(this).attr('idSorteo'));
+			}else{
+				alert('No se puede desinscribir otro usuario que no sea el suyo.');
+			}
+		});
+
+		centrarModalApCierre();
+		//Apertura-Cierre colocación modal
+		$(window).resize(function() {
+			centrarModalApCierre();
+		});
+
+		cargarProyectosPartesTrabajo();
+	});
+
+	var parking =[];
+	var fechasVerde =[];
+	var fechasVerdeParking =[];
+	var compruebaDiaVerde= false;
+
+	var fechasNaranja =[];
+	var fechasNaranjaParking =[];
+	var compruebaDiaNaranja= false;
+
+
+	function cargarTypeAheadAperturaCierre(){
+		$('#apertura .input-nombrePersonaApertura').typeahead({
+			minLength: 2,
+			source:	function(query, process) {
+		        $.post('/chinpun/general/typeaheadPersonal', { query : query }, function (data) {
+		            var key = "";
+		            labels = [];
+		            mapped = {};
+		            $.each(data, function(i,persona) {
+		              	key = persona[1] + ' ' + persona[2] + ' ' + persona[3];
+	                	mapped[key] = persona[0];
+		                labels.push(key);
+		            });
+		            process(labels);
+		        });
+		    },
+		    updater: function (item) {
+		        $('#apertura .input-idPersonaApertura').val(mapped[item]);
+		        return item;
+		    },
+		    items: 10
+		});
+
+		$('#cierre .input-nombrePersonaCierre').typeahead({
+			minLength: 2,
+			source:	function(query, process) {
+		        $.post('/chinpun/general/typeaheadPersonal', { query : query }, function (data) {
+		            var key = "";
+		            labels = [];
+		            mapped = {};
+		            $.each(data, function(i,persona) {
+		              	key = persona[1] + ' ' + persona[2] + ' ' + persona[3];
+	                	mapped[key] = persona[0];
+		                labels.push(key);
+		            });
+		            process(labels);
+		        });
+		    },
+		    updater: function (item) {
+		        $('#cierre .input-idPersonaCierre').val(mapped[item]);
+		        return item;
+		    },
+		    items: 10
+		});
+	}
+
+// 	function actualizaApertCierr(id, suplente){
+// 		$this=$('#'+id);
+// 		var num = $this.attr('num');
+
+// 		if($this.next().val()=='') {
+// 			$this.val('');
+// 			if($this.hasClass('nombreApertura')){
+// 				$this.closest('.control-group').next().find('.observacionesApertura').val('');
+// 			}
+// 			if($this.hasClass('nombreCierre')){
+// 				$this.closest('.control-group').next().find('.observacionesCierre').val('');
+// 			}
+// 		}
+// 		if(typeheadPersonaApSeleccionado) {
+// 			//si se ha seleccionado algun elemento
+// 			typeheadPersonaApSeleccionado = false;
+
+// 			if($this.hasClass('nombreApertura')){
+// 				insertarNombreApertura(num, 'A', false, suplente);
+// 			}
+// 			if($this.hasClass('nombreCierre')){
+// 				insertarNombreCierre(num, 'C', false, suplente);
+// 			}
+// 		} else {
+// 			//si no se ha seleccionado ninguno
+// 			$this.next().val('');
+// 			$this.val('');
+// 			if($this.hasClass('nombreApertura')){
+// 				$this.closest('.control-group').next().find('.observacionesApertura').val('');
+// 				insertarNombreApertura(num, 'B', false, suplente);
+// 			}
+// 			if($this.hasClass('nombreCierre')){
+// 				$this.closest('.control-group').next().find('.observacionesCierre').val('');
+// 				insertarNombreCierre(num, 'B', false, suplente);
+// 			}
+// 		}
+// 	}
+
+	//Modal inscripcion en el sorteo
+	function inscripcionSorteo(){
+		var dateTypeVar = $('#datepicker-parking').datepicker('getDate');
+		var dia = $.datepicker.formatDate('dd/mm/yy', dateTypeVar);
+		var idPersona = 91;
+		//confirm('Sorteo Inscripción - '+dia,'¿Desea inscribirse en el sorteo de plazas de parking?',function(){
+			$.post('/chinpun/horarios/parking/usuarioSorteo', { idPersona: idPersona, fechaInscripcion: dia, idSorteo: null, opcion: 'insertar'}, function(data){
+	    		if(data=='OK'){
+	    			//PARKING participantes sorteo
+	    			consultarParticipantesSorteo(dia);
+	    			alert('Se ha inscrito correctamente en el sorteo.', 'OK');
+	    		}else{
+	    			alert('Se ha producido un error a la hora de inscribirse en el sorteo.');
+	    		}
+    		});
+        //});
+	}
+
+	function salirDelSorteo(){
+		var dateTypeVar = $('#datepicker-parking').datepicker('getDate');
+		var dia = $.datepicker.formatDate('dd/mm/yy', dateTypeVar);
+		var idPersona = 91;
+		//confirm('Sorteo Inscripción - '+dia,'¿Desea salir del sorteo de plazas de parking?',function(){
+			$.post('/chinpun/horarios/parking/usuarioSorteo', { idPersona: idPersona, fechaInscripcion: dia, idSorteo: null, opcion: 'salir'}, function(data){
+	    		if(data=='OK'){
+	    			//PARKING participantes sorteo
+	    			consultarParticipantesSorteo(dia);
+	    			alert('Ha salido correctamente en el sorteo.', 'OK');
+	    		}else{
+	    			alert('Se ha producido un error a la hora de salir del sorteo.');
+	    		}
+    		});
+        //});
+	}
+
+	//Modal inscripcion en el sorteo
+	function anulaSorteo(idSorteo){
+		var dateTypeVar = $('#datepicker-parking').datepicker('getDate');
+		var dia = $.datepicker.formatDate('dd/mm/yy', dateTypeVar);
+		confirm('Sorteo Desinscripción - '+dia,'¿Desea desinscribirse en el sorteo de plazas de parking?',function(){
+			$.post('/chinpun/horarios/parking/usuarioSorteo', { idPersona: null, fechaInscripcion: null, idSorteo: idSorteo, opcion: "eliminar"}, function(data){
+	    		if(data=='OK'){
+	    			//PARKING participantes sorteo
+	    			consultarParticipantesSorteo(dia);
+	    			alert('Se ha desinscrito correctamente del sorteo.', 'OK');
+	    		}else{
+	    			alert('Se ha producido un error a la hora de desinscribirse en el sorteo.');
+	    		}
+    		});
+        });
+	}
+
+	//PARKING participantes sorteo
+	function consultarParticipantesSorteo(dia){
+		$.post("/chinpun/horarios/parking/consultaParticipantesSorteo", {fechaInsercion: dia}, function(nombresConcursantes) {
+			if(comparaConHoy(dia)){
+				$.post("/chinpun/horarios/parking/consultaPermisoSorteo", {fechaInsercion: dia}, function(data) {
+					if(data=="OK"){
+						$('#btnInscripcionSorteo').removeClass('disabled');
+						$('#btnInscripcionSorteo').removeAttr('disabled');
+						$('#btnSalirSorteo').addClass('disabled');
+						$('#btnSalirSorteo').attr('disabled','disabled');
+					}else{
+						$('#btnInscripcionSorteo').addClass('disabled');
+						$('#btnInscripcionSorteo').attr('disabled','disabled');
+						$('#btnSalirSorteo').removeClass('disabled');
+						$('#btnSalirSorteo').removeAttr('disabled');
+					}
+				});
+			}else{
+				$('#btnInscripcionSorteo').addClass('disabled');
+				$('#btnInscripcionSorteo').attr('disabled','disabled');
+				$('#btnSalirSorteo').addClass('disabled');
+				$('#btnSalirSorteo').attr('disabled','disabled');
+			}
+			var concursantes="";
+			var i;
+			for(i=0; i<nombresConcursantes.length; i++){
+				//concursantes+="<div idPersona='"+nombresConcursantes[i].persona.idPersona+"' idSorteo='"+nombresConcursantes[i].idSorteo+"'>"+nombresConcursantes[i].persona.nombre+" "+nombresConcursantes[i].persona.apellido1+"</div>";
+				if(nombresConcursantes[i].persona.tieneFoto==true){
+					concursantes+='<img src="/chinpun/gestion/usuarios/descargarFoto/'+nombresConcursantes[i].persona.idPersona+'" class="img-polaroid" rel="tooltip" data-placement="bottom" title="'+nombresConcursantes[i].persona.nombre+" "+nombresConcursantes[i].persona.apellido1+'" style="margin-right:5px; width:35px; height:35px;">';
+				}else{
+					concursantes+='<img src="/chinpun/resources/img/default_user.png" class="img-polaroid" rel="tooltip" data-placement="bottom" title="'+nombresConcursantes[i].persona.nombre+" "+nombresConcursantes[i].persona.apellido1+'" style="margin-right:5px; width:35px; height:35px;">';
+				}
+			}
+			if(i>0){
+				$('#concursantes-tabla-parking').html(concursantes);
+			}else{
+				$('#concursantes-tabla-parking').html('No hay participantes inscritos todavía.');
+			}
+		});
+	}
+
+	//PARKING color mes
+	function consultarColorParking(mes){
+		//se calcula la fecha de hoy
+		var hoy = new Date();
+		$.post("/chinpun/horarios/parking/consultaVerdes",{ mes: mes } , function(diasVerde) {
+			//se deseleccionan dias anteriores a hoy
+			var contador=0;
+			var dimension = diasVerde.length;
+			for (var i=0;i<diasVerde.length;i++){
+				//hay que cambiar formato de diasVerde[i]
+				var from = diasVerde[i].split("/");
+				var dia = new Date(from[2], from[1] - 1, from[0]);
+				if(dia.getMonth()==hoy.getMonth() && dia.getYear()==hoy.getYear()){
+					if(dia.getDate()<hoy.getDate()){
+						contador++;
+					}else{
+						//si es hoy, finaliza de eliminar
+						diasVerde.splice(0, contador);
+						break;
+					}
+				}else{
+					if((dia.getMonth()>hoy.getMonth() && dia.getYear()==hoy.getYear() || (dia.getYear()>hoy.getYear()))){
+						break;
+					}else if((dia.getMonth()<hoy.getMonth() && dia.getYear()==hoy.getYear() || (dia.getYear()<hoy.getYear()))){
+						//si no esta hoy y es pasado, se elimina todo
+						diasVerde.splice(0, diasVerde.length);
+						break;
+					}
+				}
+			}
+			if(contador==dimension){
+				//si no esta hoy y es pasado, se elimina todo
+				diasVerde.splice(0, diasVerde.length);
+			}
+			fechasVerdeParking = diasVerde;
+			$('#datepicker-parking').datepicker('refresh');
+			desactivaUsuariosParking();
+			$('#datepicker-parking-noticias').datepicker('refresh');
+			recalculaAnchoCalAC();
+		});
+		$.post("/chinpun/horarios/parking/consultaNaranjas",{ mes: mes },  function(diasNaranja) {
+			//se deseleccionan dias anteriores a hoy
+			var contador=0;
+			var dimension = diasNaranja.length;
+			for (var i=0;i<diasNaranja.length;i++){
+				//hay que cambiar formato de diasVerde[i]
+				var from = diasNaranja[i].split("/");
+				var dia = new Date(from[2], from[1] - 1, from[0]);
+				if(dia.getMonth()==hoy.getMonth() && dia.getYear()==hoy.getYear()){
+					if(dia.getDate()<hoy.getDate()){
+						contador++;
+					}else{
+						//si es hoy, finaliza de eliminar
+						diasNaranja.splice(0, contador);
+						break;
+					}
+				}else{
+					if((dia.getMonth()>hoy.getMonth() && dia.getYear()==hoy.getYear() || (dia.getYear()>hoy.getYear()))){
+						break;
+					}else if((dia.getMonth()<hoy.getMonth() && dia.getYear()==hoy.getYear() || (dia.getYear()<hoy.getYear()))){
+						//si no esta hoy y es pasado, se elimina todo
+						diasNaranja.splice(0, diasNaranja.length);
+						break;
+					}
+				}
+			}
+			if(contador==dimension){
+				//si no esta hoy y es pasado, se elimina todo
+				diasNaranja.splice(0, diasNaranja.length);
+			}
+
+			fechasNaranjaParking = diasNaranja;
+			$('#datepicker-parking').datepicker('refresh');
+			desactivaUsuariosParking();
+			$('#datepicker-parking-noticias').datepicker('refresh');
+			recalculaAnchoCalAC();
+		});
+	}
+
+	function desactivaUsuariosParking(){
+		//plazas del parking
+		$('#tabla-parking, #tabla-parking-weekend').hide();
+		$('#tabla-parking-no-select').show();
+		//participantes del sorteo
+		$('#header-sorteo').closest('.span12').hide();
+		$("#datepicker-parking td").each(function() {
+		    if($(this).find('a').hasClass('ui-state-active') ){
+		    	if (($(this).hasClass('Verde') || $(this).hasClass('Naranja')) && !$(this).hasClass('ui-datepicker-week-end')){
+			    	$('#tabla-parking td').each(function() {
+			    		$(this).removeClass('desactiveParking');
+			    		permisoParking=true;
+			    	});
+			    	$('#tabla-parking-no-select').hide();
+			    	$('#tabla-parking').show();
+			    	$('#header-sorteo').closest('.span12').show();
+		    	}else if ($(this).hasClass('ui-datepicker-week-end')){
+		    		//fin de semana
+		    		$('#tabla-parking td').each(function() {
+			    		$(this).addClass('desactiveParking');
+			    		permisoParking=false;
+			    	});
+		    		$('#tabla-parking-no-select').hide();
+			    	$('#tabla-parking-weekend').show();
+		    	}else{
+			    	$('#tabla-parking td').each(function() {
+			    		$(this).addClass('desactiveParking');
+			    		permisoParking=false;
+			    	});
+			    	$('#tabla-parking-no-select').hide();
+			    	$('#tabla-parking').show();
+			    	$('#header-sorteo').closest('.span12').show();
+			    }
+		    }
+		});
+	}
+
+	function hideAction(selector){
+		var $div = $(selector).closest(".toHide-ref").find(".toHide");
+		$($div).slideToggle(250,function(){
+			$(this).prev().find("i.change").toggleClass("icon-chevron-up").toggleClass("icon-chevron-down");
+			if($(selector).children('div').children('a').children('i').attr('class').split(' ')[2]=='icon-chevron-down') {
+				$(selector).css('border-bottom-right-radius', '4px');
+				$(selector).css('border-bottom-left-radius', '4px');
+			} else {
+				$(selector).css('border-bottom-right-radius', '0px');
+				$(selector).css('border-bottom-left-radius', '0px');
+			}
+		});
+	}
+
+	function insertarNombreApertura(){
+		$('#apertura .input-nombrePersonaApertura').val("Jesús de Mula Cano");
+		$('#apertura .input-idPersonaApertura').val("91");
+	}
+
+	function insertarNombreCierre(num, option, btnUsu, suplente){
+		$('#cierre .input-nombrePersonaCierre').val("Jesús de Mula Cano");
+		$('#cierre .input-idPersonaCierre').val("91");
+	}
+
+	function consultarColor(mes){
+		$.post("/chinpun/horarios/apertura-cierre/consultaVerdes",{ mes: mes } , function(diasVerde) {
+			fechasVerde = diasVerde;
+			$('#datepicker-apertura-cierre').datepicker('refresh');
+		});
+		$.post("/chinpun/horarios/apertura-cierre/consultaNaranjas",{ mes: mes },  function(diasNaranja) {
+			fechasNaranja = diasNaranja;
+			$('#datepicker-apertura-cierre').datepicker('refresh');
+		});
+		$('#datepicker-apertura-cierre').datepicker('refresh');
+	}
+
+
+
+	function verAperturaCierre(fecha){
+		aperturaArray = [];
+		cierreArray = [];
+		$.post("/chinpun/horarios/apertura-cierre/consultaApertura", { date: fecha },function(estadoApertura){
+			$("#apertura .input-apertura").remove();
+			if(estadoApertura != null && estadoApertura.length>0){
+				$("#apertura-added").html("");
+				$("#apertura-added").css("font-weight", "");
+				$("#apertura-added").css("color", "");
+				for(var i=0; i<estadoApertura.length; i++){
+					$("#apertura-added").append($("#modelo-apertura-existentes").html());
+					$("#apertura-added .idEstadoApertura:last").val(estadoApertura[i].idEstadoLlaves);
+					$("#apertura-added .nombrePersonaApertura:last").val(estadoApertura[i].persona.nombreCompleto);
+					$("#apertura-added .idPersonaApertura:last").val(estadoApertura[i].persona.idPersona);
+					if(estadoApertura[i].observaciones!=null && estadoApertura[i].observaciones!=""){
+						$("#apertura-added .comentario:last").attr("data-original-title", estadoApertura[i].observaciones);
+					}else{
+						$("#apertura-added .comentario:last").attr("data-original-title", "Sin observaciones");
+					}
+					$("#apertura-added .eliminar:last").attr("onclick", "eliminarApertura("+ estadoApertura[i].persona.idPersona +")");
+
+					aperturaArray[aperturaArray.length] = estadoApertura[i].idEstadoLlaves;
+				}
+			}else{
+				$("#apertura-added").html(constantes.msgSinAperturas);
+				$("#apertura-added").css("font-weight", "bold");
+				$("#apertura-added").css("color", "red");
+			}
+			$("#apertura-add").append($("#modelo-apertura-add").html());
+			$("#apertura [rel=tooltip]").each(function(index, value) {
+				$(this)
+					.tooltip()
+					.data('tooltip')
+					.tip()
+					.css('z-index', 2000+index);
+			});
+			cargarTypeAheadAperturaCierre();
+		});
+
+		$.post("/chinpun/horarios/apertura-cierre/consultaCierre", { date: fecha },function(estadoCierre){
+			$("#cierre .input-cierre").remove();
+			if(estadoCierre!=null && estadoCierre.length>0){
+				$("#cierre-added").html("");
+				$("#cierre-added").css("font-weight", "");
+				$("#cierre-added").css("color", "");
+				for(var i=0; i<estadoCierre.length; i++){
+					$("#cierre-added").append($("#modelo-cierre-existentes").html());
+					$("#cierre-added .idEstadoCierre:last").val(estadoCierre[i].idEstadoLlaves);
+					$("#cierre-added .nombrePersonaCierre:last").val(estadoCierre[i].persona.nombreCompleto);
+					$("#cierre-added .idPersonaCierre:last").val(estadoCierre[i].persona.idPersona);
+					if(estadoCierre[i].observaciones!=null && estadoCierre[i].observaciones!=""){
+						$("#cierre-added .comentario:last").attr("data-original-title", estadoCierre[i].observaciones);
+					}else{
+						$("#cierre-added .comentario:last").attr("data-original-title", "Sin observaciones");
+					}
+					$("#cierre-added .eliminar:last").attr("onclick", "eliminarCierre("+ estadoCierre[i].persona.idPersona +")");
+
+					cierreArray[cierreArray.length] = estadoCierre[i].idEstadoLlaves;
+				}
+			}else{
+				$("#cierre-added").html(constantes.msgSinCierres);
+				$("#cierre-added").css("font-weight", "bold");
+				$("#cierre-added").css("color", "red");
+			}
+			$("#cierre-add").append($("#modelo-cierre-add").html());
+			$("#cierre [rel=tooltip]").each(function(index, value) {
+				$(this)
+					.tooltip()
+					.data('tooltip')
+					.tip()
+					.css('z-index', 2000+index);
+			});
+			cargarTypeAheadAperturaCierre();
+		});
+
+	}
+
+	function annadirObservacionesApertura(){
+		if($("#apertura-add .input-nombrePersonaApertura").val() != ""){
+			if(!$("#apertura-added").find(".idPersonaApertura[value=" + $("#apertura-add .input-idPersonaApertura").val() + ']').length){
+				$('#input-observacionesApertura').val('');
+				$('#modal-observaciones-apertura').modal('show');
+				$('.modal-backdrop:last').css('z-index','1060');
+			}else{
+				alert("Esa persona ya est&aacute; incluida en la apertura de ese d&iacute;a", "ERROR");
+			}
+		}else{
+			alert("Introduzca una persona", "ERROR");
+		}
+	}
+
+	function annadirApertura(){
+		if($("#apertura-added").html()==constantes.msgSinAperturas){
+			$("#apertura-added").html("");
+		}
+		$("#apertura-added").append($("#modelo-apertura-existentes").html());
+		$("#apertura-added .nombrePersonaApertura:last").val($("#apertura .input-nombrePersonaApertura").val());
+		$("#apertura-added .idPersonaApertura:last").val($("#apertura .input-idPersonaApertura").val());
+		if($("#input-observacionesApertura").val()!=""){
+			$("#apertura-added .comentario:last").attr("data-original-title", $("#input-observacionesApertura").val());
+		}else{
+			$("#apertura-added .comentario:last").attr("data-original-title", "Sin observaciones");
+		}
+		$("#apertura-added .eliminar:last").attr("onclick", "eliminarApertura("+ $("#apertura .input-idPersonaApertura").val() +")");
+
+		$("#apertura [rel=tooltip]").each(function(index, value) {
+			$(this)
+				.tooltip()
+				.data('tooltip')
+				.tip()
+				.css('z-index', 2000+index);
+		});
+
+		$('#modal-observaciones-apertura').modal('hide');
+	}
+
+	function annadirObservacionesCierre(){
+		if($("#cierre-add .input-nombrePersonaCierre").val() != ""){
+			if(!$("#cierre-added").find(".idPersonaCierre[value=" + $("#cierre-add .input-idPersonaCierre").val() + ']').length){
+				$('#input-observacionesCierre').val('');
+				$('#modal-observaciones-cierre').modal('show');
+				$('.modal-backdrop:last').css('z-index','1060');
+			}else{
+				alert("Esa persona ya est&aacute; incluida en el cierre de ese d&iacute;a", "ERROR");
+			}
+		}else{
+			alert("Introduzca una persona", "ERROR");
+		}
+	}
+
+	function annadirCierre(){
+		if($("#cierre-added").html()==constantes.msgSinCierres){
+			$("#cierre-added").html("");
+		}
+
+		$("#cierre-added").append($("#modelo-cierre-existentes").html());
+		$("#cierre-added .nombrePersonaCierre:last").val($("#cierre .input-nombrePersonaCierre").val());
+		$("#cierre-added .idPersonaCierre:last").val($("#cierre .input-idPersonaCierre").val());
+		if($("#input-observacionesCierre").val()!=""){
+			$("#cierre-added .comentario:last").attr("data-original-title", $("#input-observacionesCierre").val());
+		}else{
+			$("#cierre-added .comentario:last").attr("data-original-title", "Sin observaciones");
+		}
+		$("#cierre-added .eliminar:last").attr("onclick", "eliminarCierre("+ $("#cierre .input-idPersonaCierre").val() +")");
+
+		$("#cierre [rel=tooltip]").each(function(index, value) {
+			$(this)
+				.tooltip()
+				.data('tooltip')
+				.tip()
+				.css('z-index', 2000+index);
+		});
+
+		$('#modal-observaciones-cierre').modal('hide');
+	}
+
+	function eliminarApertura(id){
+		confirm('Borrado','¿Est\u00e1 seguro de que desea borrar esta apertura?',function(){
+			$("#apertura-added").find(".input-apertura .idPersonaApertura[value=" +id +"]").parent().parent().remove();
+			if(!$("#apertura-added .input-apertura").length){
+				$("#apertura-added").html(constantes.msgSinAperturas);
+				$("#apertura-added").css("font-weight", "bold");
+				$("#apertura-added").css("color", "red");
+			}
+	    });
+		$('.modal-backdrop:last').css('z-index','1060');
+		$('#capaConfirm').css('z-index','1061');
+	}
+
+	function eliminarCierre(id){
+		confirm('Borrado','¿Est\u00e1 seguro de que desea borrar este cierre?',function(){
+			$("#cierre-added").find(".input-cierre .idPersonaCierre[value=" +id +"]").parent().parent().remove();
+			if(!$("#cierre-added .input-cierre").length){
+				$("#cierre-added").html(constantes.msgSinCierres);
+				$("#cierre-added").css("font-weight", "bold");
+				$("#cierre-added").css("color", "red");
+			}
+	    });
+		$('.modal-backdrop:last').css('z-index','1060');
+		$('#capaConfirm').css('z-index','1061');
+	}
+
+	function guardaAperturaCierre(){
+		$('#form-apertura-cierre').html("");
+		var i = 0;
+		$("#apertura-added .input-apertura").each(function() {
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].fecha" value="'+ dia +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].observaciones" value="'+ $(this).find(".comentario").attr("data-original-title") +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].persona.idPersona" value="'+ $(this).find(".idPersonaApertura").val() +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].idEstadoLlaves" value="'+ $(this).find(".idEstadoApertura").val() +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="proceso" value="A" />');
+			i++;
+		});
+
+		$("#cierre-added .input-cierre").each(function() {
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].fecha" value="'+ dia +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].observaciones" value="'+ $(this).find(".comentario").attr("data-original-title") +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].persona.idPersona" value="'+ $(this).find(".idPersonaCierre").val() +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].idEstadoLlaves" value="'+ $(this).find(".idEstadoCierre").val() +'" />');
+			$('#form-apertura-cierre').append('<input type="hidden" name="proceso" value="C" />');
+			i++;
+		});
+
+		for(var j=0; j<aperturaArray.length;j++){
+			if(!$("#apertura-added").find(".input-apertura .idEstadoApertura[value=" +aperturaArray[j] +"]").length){
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].fecha" value="" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].observaciones" value="" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].persona.idPersona" value="" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].idEstadoLlaves" value="'+ aperturaArray[j] +'" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="proceso" value="B" />');
+				i++;
+			}
+		}
+
+		for(var j=0; j<cierreArray.length;j++){
+			if(!$("#cierre-added").find(".input-cierre .idEstadoCierre[value=" +cierreArray[j] +"]").length){
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].fecha" value="" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].observaciones" value="" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].persona.idPersona" value="" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="estado['+i+'].idEstadoLlaves" value="'+ cierreArray[j] +'" />');
+				$('#form-apertura-cierre').append('<input type="hidden" name="proceso" value="B" />');
+				i++;
+			}
+		}
+
+		$.post('/chinpun/horarios/aperturaCierreArray', $('#form-apertura-cierre').serializeArray(), function(msg) {
+			alert("Cambios guardados con &eacute;xito","OK");
+			$('#modal-apertura-cierre').modal('hide');
+		}).fail(function() {
+			alert("No ha sido posible guardar los cambios con &eacute;xito", "ERROR");
+		});
+	}
+
+	var weekday=["Domingo","Lunes","Martes","Miercoles","Jueves","Viernes","Sabado"]
+	var month=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+	var sms="";
+	var diasSemana;
+	var d=new Date();
+
+	function adelantarSemana(){
+		d=new Date(d.getTime() + (7 * 24 * 3600 * 1000));
+		calculaSemana();
+		actualizoColor();
+	}
+	function atrasarSemana(){
+		d=new Date(d.getTime() + (-7 * 24 * 3600 * 1000));
+		calculaSemana();
+		actualizoColor();
+	}
+
+	function calculaSemana(){
+		for(var i=0;i<5;i++){
+			$('#idEstadoA'+i).val("");
+			$('#nombreApertura'+i).val("");
+			$('#idPersonaApertura'+i).val("");
+			$('#observacionesApertura'+i).val("");
+			$('#idEstadoC'+i).val("");
+			$('#nombreCierre'+i).val("");
+			$('#idPersonaCierre'+i).val("");
+			$('#observacionesCierre'+i).val("");
+		}
+		//obtengo el día de la semana
+ 		var dS=d.getDay();
+		//obtengo los días que tengo que mostrar
+		//siempre he de mostrar los días 1-5 de la semana
+		var dia1Semana= new Date(d.getTime() + ((-dS+1) * 24 * 3600 * 1000));
+		var dia2Semana= new Date(d.getTime() + ((-dS+2) * 24 * 3600 * 1000));
+		var dia3Semana= new Date(d.getTime() + ((-dS+3) * 24 * 3600 * 1000));
+		var dia4Semana= new Date(d.getTime() + ((-dS+4) * 24 * 3600 * 1000));
+		var dia5Semana= new Date(d.getTime() + ((-dS+5) * 24 * 3600 * 1000));
+
+		if(dia1Semana.getMonth()==dia5Semana.getMonth()){
+		sms="Semana del "+ dia1Semana.getDate()+ " al "+ dia5Semana.getDate() + " de " + month[dia1Semana.getMonth()] + " del " + dia1Semana.getFullYear();
+		}
+		else{
+		sms="Semana del "+ dia1Semana.getDate()+ " de "+ month[dia1Semana.getMonth()] +" al "+ dia5Semana.getDate() + " de " + month[dia5Semana.getMonth()] + " del " + dia5Semana.getFullYear();
+		}
+		$('#semana-del').html(sms);
+		$('#label-lunes').html(weekday[dia1Semana.getDay()]+" "+dia1Semana.getDate()+" de "+month[dia1Semana.getMonth()]);
+		$('#label-martes').html(weekday[dia2Semana.getDay()]+" "+dia2Semana.getDate()+" de "+month[dia2Semana.getMonth()]);
+		$('#label-miercoles').html(weekday[dia3Semana.getDay()]+" "+dia3Semana.getDate()+" de "+month[dia3Semana.getMonth()]);
+		$('#label-jueves').html(weekday[dia4Semana.getDay()]+" "+dia4Semana.getDate()+" de "+month[dia4Semana.getMonth()]);
+		$('#label-viernes').html(weekday[dia5Semana.getDay()]+" "+dia5Semana.getDate()+" de "+month[dia5Semana.getMonth()]);
+
+		diasSemana=[dia1Semana,dia2Semana,dia3Semana,dia4Semana,dia5Semana];
+		for(var i=0;i<diasSemana.length;i++){
+			var dia=diasSemana[i];
+			dia=ordenarDia(dia);
+			//dia=dia.getDate()+"/"+dia.getMonth()+"/"+dia.getFullYear();
+			$.post("/chinpun/horarios/apertura-cierre/consultaApertura", { date: dia },function(estadoApertura){
+				if(estadoApertura!=null&&estadoApertura.length>0){
+				var f=estadoApertura[0].fecha;
+				if(estadoApertura != ""){
+					f=f.split('-');
+					f= new Date(f[0],f[1]-1,f[2]);
+					f=f.getDay()-1;
+					$('#idEstadoA'+f).val(estadoApertura[0].idEstadoLlaves);
+					$('#nombreApertura'+f).val(estadoApertura[0].persona.nombreCompleto);
+					$('#idPersonaApertura'+f).val(estadoApertura[0].persona.idPersona);
+					$('#observacionesApertura'+f).val(estadoApertura[0].observaciones);
+					}
+				}
+			});
+			$.post("/chinpun/horarios/apertura-cierre/consultaCierre", { date: dia },function(estadoCierre){
+				if(estadoCierre!=null&&estadoCierre.length>0){
+				var f=estadoCierre[0].fecha;
+				if(estadoCierre != ""){
+					f=f.split('-');
+					f= new Date(f[0],f[1]-1,f[2]);
+					f=f.getDay()-1;
+					$('#idEstadoC'+f).val(estadoCierre[0].idEstadoLlaves);
+					$('#nombreCierre'+f).val(estadoCierre[0].persona.nombreCompleto);
+					$('#idPersonaCierre'+f).val(estadoCierre[0].persona.idPersona);
+					$('#observacionesCierre'+f).val(estadoCierre[0].observaciones);
+					actualizoColor();
+					}
+				}
+			});
+		}
+		setTimeout(function(){actualizoColor()},500);
+	}
+
+	function comprobarParking(dia){
+
+	    var x;
+	    var y;
+	    for (x = 0; x <= fechasVerdeParking.length; x++) {
+	        if(fechasVerdeParking[x]==dia){
+	        	compruebaDiaVerde=true;
+	        	break;
+	        }
+	        else{
+	        	compruebaDiaVerde=false;
+	        }
+	    }
+
+	    for (y = 0; y <= fechasNaranjaParking.length; y++) {
+	        if(fechasNaranjaParking[y]==dia){
+	        	compruebaDiaNaranja=true;
+	        	break;
+	        }
+	        else{
+	        	compruebaDiaNaranja=false;
+	        }
+	    }
+	}
+
+	function comprobar(dia){
+
+	    var x;
+	    var y;
+	    for (x = 0; x <= fechasVerde.length; x++) {
+	        if(fechasVerde[x]==dia){
+	        	compruebaDiaVerde=true;
+	        	break;
+	        }
+	        else{
+	        	compruebaDiaVerde=false;
+	        }
+	    }
+
+	    for (y = 0; y <= fechasNaranja.length; y++) {
+	        if(fechasNaranja[y]==dia){
+	        	compruebaDiaNaranja=true;
+	        	break;
+	        }
+	        else{
+	        	compruebaDiaNaranja=false;
+	        }
+	    }
+	}
+
+	function asignarColor(date){
+
+		ordenarDia(date);
+
+		if (compruebaDiaVerde == true) {
+			return [ true, "Verde", '' ];
+		}
+		if (compruebaDiaNaranja == true) {
+			return [ true, "Naranja", '' ];
+		} if((compruebaDiaVerde == false)&&(compruebaDiaNaranja == false)) {
+			return [ true, '', '' ];
+		}
+	}
+
+	function asignarColorParking(date){
+
+		ordenarDiaParking(date);
+
+		if (compruebaDiaVerde == true) {
+			return [ true, "Verde", '' ];
+		}
+		if (compruebaDiaNaranja == true) {
+			return [ true, "Naranja", '' ];
+		} if((compruebaDiaVerde == false)&&(compruebaDiaNaranja == false)) {
+			return [ true, '', '' ];
+		}
+	}
+
+	function ordenarDia(date){
+		var dia;
+
+		if ((date.getMonth() + 1) < 10) {
+		dia = date.getDate() + "/0" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobar(dia);
+		}
+		if ((date.getDate()) < 10) {
+		dia = "0"+date.getDate() + "/" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobar(dia);
+		}
+		if (((date.getDate()) < 10) && ((date.getMonth() + 1) < 10)) {
+		dia = "0"+date.getDate() + "/0" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobar(dia);
+		}
+		if (((date.getDate()) >= 10) && ((date.getMonth() + 1) >= 10)){
+		dia = date.getDate() + "/" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobar(dia);
+		}
+		return dia;
+	}
+
+	function ordenarDiaParking(date){
+		var dia;
+
+		if ((date.getMonth() + 1) < 10) {
+		dia = date.getDate() + "/0" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobarParking(dia);
+		}
+		if ((date.getDate()) < 10) {
+		dia = "0"+date.getDate() + "/" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobarParking(dia);
+		}
+		if (((date.getDate()) < 10) && ((date.getMonth() + 1) < 10)) {
+		dia = "0"+date.getDate() + "/0" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobarParking(dia);
+		}
+		if (((date.getDate()) >= 10) && ((date.getMonth() + 1) >= 10)){
+		dia = date.getDate() + "/" + (date.getMonth() + 1) + "/"+ date.getFullYear();
+		comprobarParking(dia);
+		}
+		return dia;
+	}
+
+// 	function guardarEstadoSemanal(){
+// 		for(var i=0;i<diasSemana.length;i++){
+// 		var fecha = ordenarDia(diasSemana[i]);
+// 		var observacionesApertura = $('#observacionesApertura'+i).val();
+// 		var personaApertura = $('#idPersonaApertura'+i).val();
+// 		var idEstadoApertura = $('#idEstadoA'+i).val();
+
+// 		var observacionesCierre = $('#observacionesCierre'+i).val();
+// 		var personaCierre = $('#idPersonaCierre'+i).val();
+// 		var idEstadoCierre = $('#idEstadoC'+i).val();
+
+// 		var nombreA = $('#nombreApertura'+i).val();
+// 		var nombreC = $('#nombreCierre'+i).val();
+
+
+// 		if(idEstadoApertura == '' || (nombreA != "" && idEstadoApertura != "")){
+// 			$.post('/chinpun/horarios/apertura-cierra/insertarApertura', { fecha: fecha, observaciones: observacionesApertura , idPersona: personaApertura, idEstado: idEstadoApertura }, function(data){
+// 		});
+// 		}
+// 		if(idEstadoCierre == '' || (nombreC != "" && idEstadoCierre != "")){
+// 			$.post('/chinpun/horarios/apertura-cierra/insertarCierre', { fecha: fecha, observaciones: observacionesCierre , idPersona: personaCierre, idEstado: idEstadoCierre }, function(data){
+// 		});
+// 		}
+// 		if((nombreA == '') && (observacionesApertura =='') ){
+// 			$.post('/chinpun/horarios/apertura-cierra/borrarEstado', { idEstado: idEstadoApertura }, function(data){
+// 			});
+// 		}
+// 		if((nombreC == '') && (observacionesCierre =='') ){
+// 			$.post('/chinpun/horarios/apertura-cierra/borrarEstado', { idEstado: idEstadoCierre }, function(data){
+// 				if(i=diasSemana.length-1){
+// 					consultarColor(mes);
+// 					consultarColorNoticias(mes);
+// 					verAperturaCierre(fecha);
+// 				}
+// 			});
+// 		}
+// 		}
+// 		alert('Se ha guardado correctamente', 'OK');
+// 	}
+
+	function guardarEstadoSemanalApertura(i,option){
+		var fecha = ordenarDia(diasSemana[i]);
+		var observacionesApertura = $('#observacionesApertura'+i).val();
+		var personaApertura = $('#idPersonaApertura'+i).val();
+		var idEstadoApertura = $('#idEstadoA'+i).val();
+		var nombreA = $('#nombreApertura'+i).val();
+
+		var ahora = new Date();
+
+		if(option=='A'){
+			apertCierreArray.push({"fecha":fecha,"observaciones":observacionesApertura,"idPersona":personaApertura,"idEstado":idEstadoApertura,"proceso":"A","estado":"A","insercion":ahora});
+		}
+		if(option=='B'){
+			apertCierreArray.push({"fecha":fecha,"observaciones":observacionesApertura,"idPersona":personaApertura,"idEstado":idEstadoApertura,"proceso":"B","estado":"A","insercion":ahora});
+		}
+
+	}
+
+	function guardarEstadoSemanalCierre(i,option){
+		var fecha = ordenarDia(diasSemana[i]);
+		var observacionesCierre = $('#observacionesCierre'+i).val();
+		var personaCierre = $('#idPersonaCierre'+i).val();
+		var idEstadoCierre = $('#idEstadoC'+i).val();
+		var nombreC = $('#nombreCierre'+i).val();
+
+		var ahora = new Date();
+
+		if(option=='C'){
+			apertCierreArray.push({"fecha":fecha,"observaciones":observacionesCierre,"idPersona":personaCierre,"idEstado":idEstadoCierre,"proceso":"C","estado":"C","insercion":ahora});
+		}
+		if(option=='B'){
+			apertCierreArray.push({"fecha":fecha,"observaciones":observacionesCierre,"idPersona":personaCierre,"idEstado":idEstadoCierre,"proceso":"B","estado":"C","insercion":ahora});
+		}
+
+	}
+
+	function actualizoIdEstado(dia){
+		$.post("/chinpun/horarios/apertura-cierre/consultaApertura", { date: dia },function(estadoApertura){
+			if(estadoApertura!=null&&estadoApertura.length>0){
+			var f=estadoApertura[0].fecha;
+			if(estadoApertura != ""){
+				f=f.split('-');
+				f= new Date(f[0],f[1]-1,f[2]);
+				f=f.getDay()-1;
+				$('#idEstadoA'+f).val(estadoApertura[0].idEstadoLlaves);
+				$('#nombreApertura'+f).val(estadoApertura[0].persona.nombreCompleto);
+				$('#idPersonaApertura'+f).val(estadoApertura[0].persona.idPersona);
+				$('#observacionesApertura'+f).val(estadoApertura[0].observaciones);
+				}
+			}
+		});
+		$.post("/chinpun/horarios/apertura-cierre/consultaCierre", { date: dia },function(estadoCierre){
+			if(estadoCierre!=null&&estadoCierre.length>0){
+			var f=estadoCierre[0].fecha;
+			if(estadoCierre != ""){
+				f=f.split('-');
+				f= new Date(f[0],f[1]-1,f[2]);
+				f=f.getDay()-1;
+				$('#idEstadoC'+f).val(estadoCierre[0].idEstadoLlaves);
+				$('#nombreCierre'+f).val(estadoCierre[0].persona.nombreCompleto);
+				$('#idPersonaCierre'+f).val(estadoCierre[0].persona.idPersona);
+				$('#observacionesCierre'+f).val(estadoCierre[0].observaciones);
+				actualizoColor();
+				}
+			}
+		});
+
+	}
+
+	function guardarEstado(tipo,option, suplente){
+		var fecha = dia;
+		var observacionesApertura = $('#observacionesApertura').val();
+		var personaApertura;
+		var idEstadoApertura;
+		if(suplente!=null&&suplente){
+			personaApertura = $('#idPersonaAperturaSup').val();
+			idEstadoApertura = $('#idEstadoASup').val();
+		}else{
+			personaApertura = $('#idPersonaApertura').val();
+			idEstadoApertura = $('#idEstadoA').val();
+		}
+
+		var observacionesCierre = $('#observacionesCierre').val();
+		var personaCierre;
+		var idEstadoCierre;
+		if(suplente!=null&&suplente){
+			personaCierre = $('#idPersonaCierreSup').val();
+			idEstadoCierre = $('#idEstadoCSup').val();
+		}else{
+			personaCierre = $('#idPersonaCierre').val();
+			idEstadoCierre = $('#idEstadoC').val();
+		}
+
+		var nombreA = $('#nombreApertura').val();
+		var nombreC = $('#nombreCierre').val();
+
+		var ahora = new Date();
+
+		if(option=='A'){
+			apertCierreArray.push({"fecha":fecha,"observaciones":observacionesApertura,"idPersona":personaApertura,"idEstado":idEstadoApertura,"proceso":"A","estado":"A","insercion":ahora});
+		}
+		if(option=='C'){
+			apertCierreArray.push({"fecha":fecha,"observaciones":observacionesCierre,"idPersona":personaCierre,"idEstado":idEstadoCierre,"proceso":"C","estado":"C","insercion":ahora});
+		}
+		if(option=='B'){
+			if(tipo==1){
+				apertCierreArray.push({"fecha":fecha,"observaciones":observacionesApertura,"idPersona":personaApertura,"idEstado":idEstadoApertura,"proceso":"B","estado":"A","insercion":ahora});
+			}else if(tipo==2){
+				apertCierreArray.push({"fecha":fecha,"observaciones":observacionesCierre,"idPersona":personaCierre,"idEstado":idEstadoCierre,"proceso":"B","estado":"C","insercion":ahora});
+			}
+		}
+
+	}
+
+	function consultarColorNoticias(mes){
+		$.post("/chinpun/horarios/apertura-cierre/consultaVerdes",{ mes: mes } , function(diasVerde) {
+			fechasVerde = diasVerde;
+			$('#datepicker-apertura-cierre-noticias').datepicker('refresh');
+			recalculaAnchoCalAC();
+		});
+		$.post("/chinpun/horarios/apertura-cierre/consultaNaranjas",{ mes: mes },  function(diasNaranja) {
+			fechasNaranja = diasNaranja;
+			$('#datepicker-apertura-cierre-noticias').datepicker('refresh');
+			recalculaAnchoCalAC();
+		});
+
+		 $('#datepicker-apertura-cierre-noticias').datepicker('refresh');
+		 recalculaAnchoCalAC();
+	}
+
+	function recalculaAnchoCalAC() {
+		$('#datepicker-apertura-cierre-noticias .ui-datepicker-inline').css('margin-left', '-13px');
+		$('#datepicker-apertura-cierre-noticias .ui-datepicker-inline').width($('#widget-ac').width());
+		$('#datepicker-parking-noticias .ui-datepicker-inline').css('margin-left', '-13px');
+		$('#datepicker-parking-noticias .ui-datepicker-inline').width($('#widget-ac').width());
+	}
+
+
+	///////////////////PARKING/////////////////////
+	function movimiento(id){
+		var idUsuario = "91";
+		var nombre = "Jesús";
+		var idPersona = $(id).next().attr('value');
+		var nombreUsuario = $(id).text();
+		idPlaza = $(id).attr('plaza');
+		var fechaMov = ordenarDia($( "#datepicker-parking" ).datepicker( "getDate" ));
+		var today = new Date();
+		var dd = today.getDate();
+		var mm = today.getMonth()+1;//January is 0!
+		var yyyy = today.getFullYear();
+		if(dd<10){dd='0'+dd;}
+		if(mm<10){mm='0'+mm;}
+		var fechaAct = dd + '/' + mm + '/' + yyyy;
+		var selector = '#idPersonaPlaza'+idPlaza;
+
+		if(permisoParking){
+			/* if(($(selector).val() != idPersona) && (plaza != 'Libre') ){
+				alert('No se puede liberar la plaza de otra persona', 'ERROR');
+			} */
+			$.post('/chinpun/horarios/parking/permisoParking', {idUsuario: idUsuario}, function(permiso){
+				if(nombreUsuario != 'Libre'){
+					if( permiso==true || (permiso==false && idUsuario==idPersona) ){
+						tipoMovimiento='L';
+						confirm('Liberar plaza','¿Desea liberar la plaza ocupada por '+nombreUsuario+'?',function(){
+							$.post('/chinpun/horarios/parking/insertarMovimiento', { idPersona: idPersona, idPlaza: idPlaza , fechaMovimiento: fechaMov, tipoMovimiento: tipoMovimiento }, function(data){
+					    		if(data=='OK'){
+					    			$(id).text('Libre');
+					    			$(id).next().removeAttr('value','');
+					    			//PARKING participantes sorteo
+					 				consultarParticipantesSorteo(fechaMov);
+					 				//PARKING consulta plazas libres
+					 				$.post("/chinpun/horarios/parking/consultaPlazasDia", {dia: fechaMov}, function(nombresParking) {
+					 					parking = nombresParking;
+
+					 					var i;
+					 					for(i=0; i<parking.length; i++){
+
+					 						var selector1 = '#plaza'+(i+1);
+					 						var selector2 = '#idPersonaPlaza'+(i+1);
+					 						$(selector1).parent().removeClass("parkingLibre");
+
+					 						if(nombresParking[i].persona != null){
+					 							$(selector1).text(nombresParking[i].persona.nombre+' '+nombresParking[i].persona.apellido1);
+					 							$(selector2).val(nombresParking[i].persona.idPersona);
+					 						}else{
+					 							$(selector1).text("Libre");
+					 							$(selector1).parent().addClass("parkingLibre");
+					 							$(selector2).val("");
+					 						}
+					 					}
+					 					desactivaUsuariosParking();
+					 					consultarColorParking(mes);
+					 				});
+					    			alert('La plaza ha sido liberada correctamente', 'OK');
+					    		}else{
+					    			alert('Se ha producido un error a la hora de reservar la plaza.');
+					    		}
+				    		});
+	                	});
+					}else{
+		    			alert('Únicamente puede liberar plazas que tenga reservadas.');
+		    		}
+				}
+				if(nombreUsuario == 'Libre'){
+					if(permiso==true){
+						$('#modal-reserva-parking').modal('show');
+					}else{
+						//si no es administrador
+						var dateTypeVar = $('#datepicker-parking').datepicker('getDate');
+						var dia = $.datepicker.formatDate('dd/mm/yy', dateTypeVar);
+
+						$.post('/chinpun/horarios/parking/permisoReservaHora', {dia: dia}, function(permisoHora){
+							if(permisoHora=='OK'){
+								//se reserva directamente una plaza
+								$('#idPersonaConsulta').attr('value',idUsuario);
+								$('#nombrePersonaConsulta').attr('value',nombreUsuario);
+								reservaParking();
+								//PARKING participantes sorteo
+								consultarParticipantesSorteo(dia);
+								//PARKING consulta plazas libres
+								$.post("/chinpun/horarios/parking/consultaPlazasDia", {dia: dia}, function(nombresParking) {
+									parking = nombresParking;
+
+									var i;
+									for(i=0; i<parking.length; i++){
+
+										var selector1 = '#plaza'+(i+1);
+										var selector2 = '#idPersonaPlaza'+(i+1);
+										$(selector1).parent().removeClass("parkingLibre");
+
+										if(nombresParking[i].persona != null){
+											$(selector1).text(nombresParking[i].persona.nombre+' '+nombresParking[i].persona.apellido1);
+											$(selector2).val(nombresParking[i].persona.idPersona);
+										}else{
+											$(selector1).text("Libre");
+											$(selector1).parent().addClass("parkingLibre");
+											$(selector2).val("");
+										}
+									}
+									desactivaUsuariosParking();
+								});
+
+							}else if(permisoHora=='CONPLAZA'){
+								alert('Ya tiene una plaza reservada para ese día.');
+							}else{
+								$.post("/chinpun/horarios/parking/consultaPermisoSorteo", {fechaInsercion: dia}, function(dataSorteo) {
+									if(dataSorteo=="OK"){
+										inscripcionSorteo();
+									}else{
+										alert('Ya está inscrito en el sorteo. Se le notificará por correo si ha obtenido una plaza.');
+									}
+								});
+							}
+						});
+					}
+				}
+			});
+		}
+	}
+
+	function reservaParking(){
+		var idPersona = $('#idPersonaConsulta').val();
+		var nombreUsuario = $('#nombrePersonaConsulta').val();
+		var fechaMov = ordenarDia($( "#datepicker-parking" ).datepicker( "getDate" ));
+		var myDate = new Date();
+		var fechaAct = ordenarDia(myDate);
+		var selector1 = '#plaza'+idPlaza;
+		var selector2 = '#idPersonaPlaza'+idPlaza;
+		tipoMovimiento='R';
+		$.post('/chinpun/horarios/parking/insertarMovimiento', { idPersona: idPersona, idPlaza: idPlaza , fechaMovimiento: fechaMov, tipoMovimiento: tipoMovimiento }, function(data){
+    		if(data=='OK'){
+    			//comprueba PARKING color mes
+    			consultarColorParking(mes);
+    			$(selector1).parent().removeClass("parkingLibre");
+    			$(selector1).text(nombreUsuario);
+    			$(selector2).attr('value',idPersona);
+    			alert('La plaza ha sido reservada correctamente', 'OK');
+    		}else{
+    			alert('Se ha producido un error a la hora de reservar la plaza.');
+    		}
+		});
+	}
+	///////////////////PARKING/////////////////////
+
+	function inicializarAccionesListaNotificaciones() {
+		$('.celda-icono-notificacion').mouseenter(
+				function() {
+					if (celdaNotificacion != null) {
+						$(celdaNotificacion).children('i').attr('class',
+								iconoNotificacion);
+						$(this).attr('onclick', '');
+					}
+					celdaNotificacion = $(this);
+					iconoNotificacion = $(this).children('i').attr('class');
+					$(this).children('i').attr('class', 'icon-ok');
+					$(this).attr(
+							'onclick',
+							'marcarAvisoComoLeido(' + $(this).attr('idAviso')
+									+ ')');
+				});
+
+		$('.celda-icono-notificacion').mouseleave(
+				function() {
+					$(celdaNotificacion).children('i').attr('class',
+							iconoNotificacion);
+					$(this).attr('onclick', '');
+					iconoNotificacion = null;
+					celdaNotificacion = null;
+				});
+
+		$('.row-notificacion').mouseenter(function() {
+			$(this).css('background-color', '#E6E6E6');
+		});
+
+		$('.row-notificacion').mouseout(
+				function() {
+					$(this).css('background-color', 'white');
+					$('i.icon-ok').parent('td').parent('tr').css(
+							'background-color', '#E6E6E6');
+				});
+
+		$('.celda-icono-notificacion').click(function(e) {
+			e.stopPropagation();
+		});
+	}
+
+	function actualizarNotificaciones() {
+		$('#contenedor-lista-notificaciones')
+				.load(
+						'/chinpun/usuarioConectado/actualizarNotificaciones #tabla-notificaciones',
+						{}, function() {
+							inicializarAccionesListaNotificaciones();
+						});
+	}
+
+	function marcarTodosComoLeidos() {
+		$
+				.post(
+						'/chinpun/usuarioConectado/marcarTodosAvisosComoLeidos',
+						function() {
+							actualizarNotificaciones();
+							$('#numNotificaciones').remove();
+							//$('#numNotificaciones').html('0');
+							//$('#numNotificaciones').attr('class',	'sin-notificaciones');
+						});
+	}
+
+	function marcarAvisoComoLeido(idAviso) {
+		$.post('/chinpun/usuarioConectado/marcarAvisoComoLeido', {
+			idAviso : idAviso
+		}, function() {
+			actualizarNotificaciones();
+			$('#numNotificaciones').html($('#numNotificaciones').html() - 1);
+			if ($('#numNotificaciones').html() == 0) {
+				$('#numNotificaciones').remove();
+			}
+		});
+	}
+
+	/*
+	 * Función que muestra u oculta el menú lateral con la información del empleado
+	 */
+	function mostrarMenuLateral() {
+		if ($('#estadoMenuLateral').val() == 'true') {
+			$
+					.post(
+							'/chinpun/usuarioConectado/cambiarEstadoMenuLateral',
+							{
+								nuevoEstado : false
+							}, function(nuevoEstado) {
+								$('#sidebar').css('display', 'none');
+								$('#content').attr('class', 'span12');
+								//problema - trigger causa mala redimension en la datatable
+								$('#estadoMenuLateral').val(nuevoEstado)
+										.trigger('change');
+							});
+		} else {
+			$
+					.post(
+							'/chinpun/usuarioConectado/cambiarEstadoMenuLateral',
+							{
+								nuevoEstado : true
+							}, function(nuevoEstado) {
+								$('#content').attr('class', 'span9');
+								$('#sidebar').fadeIn();
+								//problema - trigger causa mala redimension en la datatable
+								$('#estadoMenuLateral').val(nuevoEstado)
+										.trigger('change');
+							});
+		}
+	}
+
+	/*
+	 * Función que modifica el boton de inicio de sesión de fichaje
+	 */
+
+	function cambiarEstadoSesion() {
+		if ($('#estadoSesion').val() == 'true') {
+			$.post('/chinpun/fichajes/cargarFichajeAbierto',{
+				idUsuario : '91'
+			}, function(fichaje) {
+				var fechaIni = new Date(fichaje.fechaInicio);
+				var fechaFin = new Date();
+				var horaIni=fechaIni.getHours();
+				var minIni=fechaIni.getMinutes();
+				var segIni=fechaIni.getSeconds();
+				var horaFinal=fechaFin.getHours();
+				var minFinal=fechaFin.getMinutes();
+				var segFinal=fechaFin.getSeconds();
+				if(fechaIni.getHours()<10){
+					horaIni='0'+fechaIni.getHours();
+				}
+				if(fechaIni.getMinutes()<10){
+					minIni='0'+fechaIni.getMinutes();
+				}
+				if(fechaIni.getSeconds<10){
+					segIni='0'+fechaIni.getSeconds();
+				}
+				if(fechaFin.getHours()<10){
+					horaFinal='0'+fechaFin.getHours();
+				}
+				if(fechaFin.getMinutes()<10){
+					minFinal='0'+fechaFin.getMinutes();
+				}
+				if(fechaFin.getSeconds<10){
+					segFinal='0'+fechaFin.getSeconds();
+				}
+				var horaInicio = horaIni+':'+minIni+':'+segIni;
+				var horaFin = horaFinal+':'+minFinal+':'+segFinal;
+
+				var dd = fechaIni.getDate();
+				var mm = fechaIni.getMonth()+1;
+				var yyyy = fechaIni.getFullYear();
+				if(dd<10){dd='0'+dd;}
+				if(mm<10){mm='0'+mm;}
+				var fecha = dd+'/'+mm+'/'+yyyy;
+
+				$.post('/chinpun/fichajes/comprobarSiNoHayFichajesSolapados',{
+					idUsuario : '91', fecha : fecha, horaInicio : horaInicio, horaFin : horaFin, idFichaje : fichaje.idFichaje
+				}, function(compruebaNoSolape) {
+					if(compruebaNoSolape==true){
+						$('#form-fin-sesion').each(function() {
+							this.reset();
+						});
+						$('#contenedor-proyectos-usuario').load('/chinpun/fichajes/cargarProyectosPersona #select-proyecto-sesion',[],function() {
+							$('#select-proyecto-sesion').change(function() {
+								actualizaTareasSesion();
+							});
+
+							cargarFichajeFinSesion(fichaje.idFichaje);
+							$('#modal-fin-sesion').modal('show');
+						});
+					}else{
+						alert('Hay fichajes solapados. Asegúrese de que este suceso no se produzca a la hora de cerrar sesión.');
+					}
+				});
+			});
+		} else {
+			$.post('/chinpun/fichajes/abrirSesionFichaje', {
+				nuevoEstado : true
+			}, function(fichaje) {
+				$('#botonSesion').removeClass('btn-success');
+				$('#botonSesion').addClass('btn-danger');
+				$('#textoSesion').html('Cerrar sesión');
+				$('#estadoSesion').val("true").trigger('change');
+				$('#idFichaje-sesion').val(fichaje.idFichaje);
+				var fechaInicio = new Date(fichaje.fechaInicio);
+				var horaInicio = fechaInicio.getHours();
+				if (horaInicio < 10) {
+					horaInicio = '0' + horaInicio;
+				}
+				var minutosInicio = fechaInicio.getMinutes();
+				if (minutosInicio < 10) {
+					minutosInicio = '0' + minutosInicio;
+				}
+				$('#datos-sesion').html('Sesión iniciada a las ' + horaInicio + ':' + minutosInicio);
+				if (window.location.pathname.split('/')[2] == 'fichajes') {
+					consultarFichajes();
+				}
+			});
+		}
+	}
+
+	function cerrarSesion() {
+		if ($('#form-fin-sesion').valid()) {
+			$.post('/chinpun/fichajes/cerrarSesionFichaje',{
+				nuevoEstado : false,
+				idFichaje : $('#idFichaje-sesion').val(),
+				idProyecto : $('#select-proyecto-sesion').val(),
+				idTarea : $('#select-tarea-sesion').val(),
+				observaciones : $('#observaciones-sesion').val()
+			},
+			function(nuevoEstado) {
+				$('#botonSesion').addClass('btn-success');
+				$('#botonSesion').removeClass('btn-danger');
+				$('#textoSesion').html('Iniciar sesión');
+				$('#estadoSesion').val(nuevoEstado).trigger('change');
+				$('#modal-fin-sesion').modal('hide');
+				$('#datos-sesion').html('Iniciar sesión');
+				$('#sidebar').load('/chinpun/usuarioConectado/recargarSidebar #contenido-sidebar',{},function() {
+					if (window.location.pathname
+							.split('/')[2] == 'fichajes') {
+						consultarFichajes();
+					}
+				});
+				alert('Fichaje cerrado correctamente', 'OK');
+			});
+		}
+	}
+
+	function actualizaTareasSesion(){
+		$('#select-tarea-sesion').removeAttr('requiredParam');
+		$.post('/chinpun/fichajes/cargarJSONTareasProyecto',{
+			idProyecto : $('#select-proyecto-sesion').val(),
+			idPersona : '91'
+		},function(tareas) {
+			$('#select-tarea-sesion').html('');
+			var contenido = '<option value="">Seleccione una tarea</option>';
+			for (i = 0; i < tareas.length; i++) {
+				contenido += '<option value="'+tareas[i].idTarea+'">'+ tareas[i].nombre+ '</option>';
+			}
+			$('#select-tarea-sesion').html(contenido);
+			if ($('#select-tarea-sesion').children('option').size() > 1) {
+				$('#select-tarea-sesion').removeAttr('disabled');
+				$.post('/chinpun/fichajes/comprobarSiSeFichaSobreTarea',{
+					idProyecto : $('#select-proyecto-sesion').val(),
+					idUsuario : '91'
+				},function(result) {
+					if (result) {
+						$('#select-tarea-sesion').attr('requiredParam','"tarea"');
+						$('#select-tarea-sesion').valid();
+					}
+				});
+			} else {
+				$('#select-tarea-sesion').attr('disabled',true);
+				$('#select-tarea-sesion').valid();
+			}
+		});
+	}
+
+	function cargarFichajeFinSesion(idFichaje) {
+		$.post('/chinpun/fichajes/cargarFichaje', {idFichaje:idFichaje}, function(fichaje) {
+			$('#idFichaje-sesion').val(idFichaje);
+			$('#observaciones-sesion').val(fichaje.observaciones);
+
+			/* $('#idFichaje').attr('value',fichaje.idFichaje);
+			$('#idPersona-insertar').attr('value',fichaje.persona.idPersona);
+			$('#observaciones-fichaje').attr('value',fichaje.observaciones);
+			$('#horas').attr('value',fichaje.horas);
+			$('#horasExtra').attr('checked', fichaje.horasExtra); */
+
+			if(fichaje.proyecto!= null && fichaje.proyecto.idProyecto!=null) {
+				$('#select-proyecto-sesion').val(fichaje.proyecto.idProyecto);
+				$('#select-tarea-sesion').removeAttr('requiredParam');
+				$.post('/chinpun/fichajes/cargarJSONTareasProyecto',{
+					idProyecto : fichaje.proyecto.idProyecto,
+					idPersona : '91'
+				},function(tareas) {
+					$('#select-tarea-sesion').html('');
+					var contenido = '<option value="">Seleccione una tarea</option>';
+					for (i = 0; i < tareas.length; i++) {
+						contenido += '<option value="'+tareas[i].idTarea+'">'+ tareas[i].nombre+ '</option>';
+					}
+					$('#select-tarea-sesion').html(contenido);
+					if ($('#select-tarea-sesion').children('option').size() > 1) {
+						$('#select-tarea-sesion').removeAttr('disabled');
+						$.post('/chinpun/fichajes/comprobarSiSeFichaSobreTarea',{
+							idProyecto : $('#select-proyecto-sesion').val(),
+							idUsuario : '91'
+						},function(result) {
+							if (result) {
+								$('#select-tarea-sesion').attr('requiredParam','"tarea"');
+								$('#select-tarea-sesion').valid();
+							}
+						});
+						//Una vez cargadas, si ya hay alguna tarea seleccionada anteriormente, se selecciona en la modal
+						if(fichaje.tarea!=null && fichaje.tarea.idTarea!=null){
+							$('#select-tarea-sesion').val(fichaje.tarea.idTarea);
+						}
+					} else {
+						$('#select-tarea-sesion').attr('disabled',true);
+						$('#select-tarea-sesion').valid();
+					}
+				});
+			}
+
+			if(fichaje.observaciones!=null){
+				$('#observaciones-sesion').val(fichaje.observaciones);
+			}
+
+		});
+	}
+
+	function cerrarModal() {
+		resetValidacion(validadorSesion);
+	}
+
+	function verModalApertura(parsedDate) {
+		var dateD;
+		if (parsedDate == null) {
+			dateD = new Date();
+			$('#datepicker-apertura-cierre').datepicker("setDate", dateD);
+		}
+		if (parsedDate != null) {
+			$('#datepicker-apertura-cierre').datepicker("setDate", parsedDate);
+			dateD = $("#datepicker-apertura-cierre").datepicker("getDate");
+		}
+
+		consultarColorNoticias(mes);
+
+		mes = dateD.getMonth() + 1;
+		var fecha = ordenarDia(dateD);
+
+		verAperturaCierre(fecha);
+		vistaDiaria();
+		$('#modal-apertura-cierre').modal('show');
+	}
+
+	function verModalParking(fecha_actual) {
+		var dateD;
+		var parsedDate;
+		if (fecha_actual == null) {
+			dateD = new Date();
+			$('#datepicker-parking').datepicker("setDate", dateD);
+		}else{
+			parsedDate = $.datepicker.parseDate('dd/mm/yy', fecha_actual);
+			$('#datepicker-parking').datepicker("setDate", parsedDate);
+			dateD = $("#datepicker-parking").datepicker("getDate");
+		}
+		mes = dateD.getMonth() + 1;
+		var dia_actual = dateD.getDate();
+		var ano_actual = dateD.getFullYear();
+		consultarColorParking(mes);
+		recalculaAnchoCalAC();
+
+		//PARKING participantes sorteo
+		consultarParticipantesSorteo(fecha_actual);
+		//PARKING consulta plazas libres
+		$.post("/chinpun/horarios/parking/consultaPlazasDia", {dia: fecha_actual}, function(nombresParking) {
+			parking = nombresParking;
+			var diaActual = new Date();
+			var fecha_select = $( "#datepicker-parking" ).datepicker("getDate");
+			var i;
+			for(i=0; i<parking.length; i++){
+
+				var selector1 = '#plaza'+(i+1);
+				var selector2 = '#idPersonaPlaza'+(i+1);
+				$(selector1).parent().removeClass("parkingLibre");
+
+				if(nombresParking[i].persona != null){
+					$(selector1).text(nombresParking[i].persona.nombre+' '+nombresParking[i].persona.apellido1);
+					$(selector2).val(nombresParking[i].persona.idPersona);
+				}else{
+					$(selector1).text("Libre");
+					$(selector2).val("");
+					if(fecha_select.getDate() >= diaActual.getDate() && fecha_select.getMonth() >= diaActual.getMonth() && fecha_select.getFullYear() >= diaActual.getFullYear()){
+						$(selector1).parent().addClass("parkingLibre");
+					}else{
+						$(selector1).parent().removeClass("parkingLibre");
+					}
+				}
+			}
+			desactivaUsuariosParking();
+		});
+
+		$('#modal-parking').modal('show');
+
+	}
+
+	function vistaDiaria(){
+		$('#vista-semanal').hide();
+		$('#nombres-apertura-cierre').show();
+		$('#dpicker').show();
+		// Estilos provisionales
+		if($('#modal-apertura-cierre').height()>$(window).height()){
+			$('#modal-apertura-cierre').css("max-height",$(window).height());
+			$('#modal-apertura-cierre').css("top","0px");
+			$('#modal-apertura-cierre').css("margin-top","0px");
+		}else if($('#modal-apertura-cierre').height()+60>$(window).height()){
+			$('#modal-apertura-cierre').css("max-height","");
+			$('#modal-apertura-cierre').css("top","65%");
+			$('#modal-apertura-cierre').css("margin-top","-250px");
+		}else{
+			$('#modal-apertura-cierre').css("max-height","");
+			$('#modal-apertura-cierre').css("top","50%");
+			$('#modal-apertura-cierre').css("margin-top","-250px");
+		}
+	}
+
+	function vistaSemanal(){
+		$('#nombres-apertura-cierre').hide();
+		$('#dpicker').hide();
+		calculaSemana();
+		$('#vista-semanal').show();
+		// Estilos provisionales
+		if($('#modal-apertura-cierre').height()>$(window).height()){
+			$('#modal-apertura-cierre').css("max-height",$(window).height());
+			$('#modal-apertura-cierre').css("top","0px");
+			$('#modal-apertura-cierre').css("margin-top","0px");
+		}else{
+			$('#modal-apertura-cierre').css("max-height","");
+			$('#modal-apertura-cierre').css("top","35%");
+			$('#modal-apertura-cierre').css("margin-top","-250px");
+		}
+		actualizoColor();
+
+	}
+
+	var labelsSemana=['label-lunes','label-martes','label-miercoles','label-jueves','label-viernes'];
+	function actualizoColor(){
+		//compruebo el texto de los imput
+		for(var i=0;i<5;i++){
+			$('#nombreApertura'+i).removeClass('errorApertura');
+			$('#nombreCierre'+i).removeClass('errorApertura');
+			$('#nombreApertura'+i).parent().find('span').removeClass('btn-danger');
+			$('#nombreCierre'+i).parent().find('span').removeClass('btn-danger');
+
+			if($('#nombreApertura'+i).val()!="" && $('#nombreCierre'+i).val()==""){
+				$('#'+labelsSemana[i]).removeClass('badge badge-success');
+				$('#'+labelsSemana[i]).addClass('badge badge-warning');
+
+				$('#nombreCierre'+i).addClass('errorApertura');
+				$('#nombreCierre'+i).parent().find('span').addClass('btn-danger');
+			};
+			if($('#nombreApertura'+i).val()=="" && $('#nombreCierre'+i).val()!=""){
+				$('#'+labelsSemana[i]).removeClass('badge badge-success');
+				$('#'+labelsSemana[i]).addClass('badge badge-warning');
+
+				$('#nombreApertura'+i).addClass('errorApertura');
+				$('#nombreApertura'+i).parent().find('span').addClass('btn-danger');
+			};
+			if($('#nombreCierre'+i).val()!="" && $('#nombreApertura'+i).val()!=""){
+				$('#'+labelsSemana[i]).removeClass('badge badge-warning');
+				$('#'+labelsSemana[i]).addClass('badge badge-success');
+			};
+			if($('#nombreCierre'+i).val()=="" && $('#nombreApertura'+i).val()==""){
+				$('#'+labelsSemana[i]).removeClass('badge badge-success');
+				$('#'+labelsSemana[i]).removeClass('badge badge-warning');
+
+				$('#nombreApertura'+i).addClass('errorApertura');
+				$('#nombreCierre'+i).addClass('errorApertura');
+				$('#nombreApertura'+i).parent().find('span').addClass('btn-danger');
+				$('#nombreCierre'+i).parent().find('span').addClass('btn-danger');
+			};
+		};
+	}
+
+	function modalTareaFichaje() {
+		if($("#select-proyecto-sesion").val()!=""){
+			$('#modal-insertar-tarea-fs').find('input').val("");
+			$('#modal-insertar-tarea-fs').find('select').val("");
+			$('#modal-insertar-tarea-fs').find('textarea').val("");
+			$('#selectProyectoModal-fs').val($("#select-proyecto-sesion").val());
+			$('#selectProyectoModal-fs').attr('readonly', 'true');
+			$('#selectHitoModal-fs').removeAttr('disabled');
+			$('#selectParteModal-fs').attr('disabled', 'true');
+			$('#modal-insertar-tarea-fs').children('.modal-header').children('#titulo-modal-tarea-fs').html('Insertar tarea');
+			$('#modal-insertar-tarea-fs').modal('show');
+			$('#selectEstadoModal-fs>option[value=2]').attr('selected','selected');
+		}else{
+			alert('Debe escoger algún proyecto','INFO');
+		}
+	}
+
+	function insertarTareaFinSesion() {
+		if($("#tarea-modal-fs").valid()) {
+			$.post('/chinpun/proyectos/tareas/insertar', $('#tarea-modal-fs').serializeArray(), function(data){
+				$('#modal-insertar-tarea-fs').modal('hide');
+	            alert('La tarea se ha insertado correctamente.', 'OK');
+	            actualizaTareasSesion();
+			});
+		}
+	}
+
+	// Función que compara fecha de hoy con formato dd/mm/yyyy; True si la fecha pasada es mayor estrictamente
+	function comparaConHoy(fecha){
+		var fechaCompHoy = new Date();
+	    var xMonth=fecha.substring(3, 5);
+	    var xDay=fecha.substring(0, 2);
+	    var xYear=fecha.substring(6,10);
+	    var yMonth=fechaCompHoy.getMonth() +1;
+	    var yDay=fechaCompHoy.getDate();
+	    var yYear=fechaCompHoy.getFullYear();
+	    if (xYear> yYear)
+	    {
+	        return(true)
+	    }
+	    else
+	    {
+	      if (xYear == yYear)
+	      {
+	        if (xMonth> yMonth)
+	        {
+	            return(true)
+	        }
+	        else
+	        {
+	          if (xMonth == yMonth)
+	          {
+	            if (xDay>yDay)
+	              return(true);
+	            else
+	              return(false);
+	          }
+	          else
+	            return(false);
+	        }
+	      }
+	      else
+	        return(false);
+	    }
+	}
+
+
+	// ---------------- PARTES DE TRABAJO ------------------ //
+	function verModalPartesTrabajo() {
+		var d = new Date();
+		$('button[id=anyo-modalPartes]').html(d.getFullYear());
+		$('#in-anno-modalPartes').val(d.getFullYear());
+		$('#modal-partes-trabajo').modal('show');
+	}
+
+	function cargarProyectosPartesTrabajo() {
+		$.post('/chinpun/fichajes/partes-trabajo/cargarProyectosUsuario', {}, function(proyectos) {
+
+			var contenido = '<option value="">Seleccione un proyecto</option>';
+
+			for(var i=0;i<proyectos.length;i++) {
+				contenido += "<option value='" + proyectos[i].idProyecto + "'>"+ proyectos[i].nombre +"</option>";
+		    }
+
+			$("#idProyecto-modalPartes").html(contenido);
+	    });
+	}
+
+	function cargarPersonasPartesTrabajo(){
+		if(!$("#idProyecto-modalPartes").val()==""){
+			$.post('/chinpun/proyectos/getPersonalProyecto', {idProyecto:$("#idProyecto-modalPartes").val()}, function(personal) {
+				var contenido = '<option value="">Seleccione una persona</option>';
+
+				for(var i=0;i<personal.length;i++) {
+					contenido += "<option value='" + personal[i].persona.idPersona + "'>"+ personal[i].persona.nombreCompleto +"</option>";
+			    }
+
+				$("#idPersona-modalPartes").html(contenido);
+
+				$("#idPersona-modalPartes").attr("disabled",false);
+		    });
+		}else{
+			$("#idPersona-modalPartes").attr("disabled",true);
+		}
+	}
+
+	function cambioAnnoPartesTrabajo(c){
+		var anno=$('button[id=anyo-modalPartes]').html();
+		anno=parseInt(anno)+c;
+		$('button[id=anyo-modalPartes]').html(anno);
+		$('#in-anno-modalPartes').val(anno);
+	}
+
+	function enviarFormularioPartes(){
+		//si radio button es el correspondiente a los meses especificos..
+		//para todos los checkbox concateno los meses
+		if($("#oR2").is(':checked')){
+			var arrayMeses=$('#form-informe-partesTrabajo input[type=checkbox]');
+			var meses="";
+			for(var i=0;i<arrayMeses.length;i++){
+				if($(arrayMeses[i]).is(':checked')){
+					meses += $(arrayMeses[i]).val()+",";
+				}
+			}
+			$('input[name=meses]').val(meses);
+		}else{
+			var meses="";
+			for(var i=0;i<12;i++){
+				meses += i+",";
+			}
+			$('input[name=meses]').val(meses);
+		}
+
+		if($("#form-informe-partesTrabajo").valid()){
+			$('#form-informe-partesTrabajo').submit();
+		}
+	}
+
+
+</script>
+
+</head>
+<body>
+
+<div id="wrap">
+<header>
+
+
+<!-- <nav> -->
+<input type="hidden" id="idUsuarioConectado" value="91"/>
+
+<div class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-inner" style="border-bottom-width: 0px;">
+        <div class="container" style="margin-left:20px; width:100%;">
+            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse"
+               style="margin-right:40px;">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </a>
+            <a class="brand" style="padding:0" href="/chinpun/welcome">
+                <img src="/chinpun/resources/img/chinpun.png" alt="logo" width="160" height="37"/>
+            </a>
+
+            <div class="nav-collapse collapse">
+                <ul class="nav">
+
+                    <li id="menu-fichajes" class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" style="cursor:pointer;">Fichajes
+                            <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            <li id="fichajes">
+                                <a href="/chinpun/fichajes/consulta/91">Fichajes</a>
+                            </li>
+                            <li id="incidencias">
+                                <a href="/chinpun/utilidades/incidencias/consulta">Ausencias</a>
+                            </li>
+                            <li id="partes-trabajo">
+                                <a href="/chinpun/fichajes/insercion-diaria/consulta">Inserci&oacute;n
+                                    diaria</a>
+                            </li>
+                            <li id="partes-trabajo">
+                                <a href="/chinpun/fichajes/insercion-masiva/consulta">Inserci&oacute;n
+                                    masiva</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li id="partes-trabajo">
+                                <a href="#" onclick="verModalPartesTrabajo()">Partes de Trabajo</a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li id="menu-proyectos" class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" style="cursor:pointer;">Proyectos
+                            <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            <li id="proyectos">
+                                <a href="/chinpun/proyectos/consulta">Gestión de Proyectos</a>
+                            </li>
+                            <li id="hitos">
+                                <a href="/chinpun/proyectos/hitos/consulta">Hitos</a>
+                            </li>
+                            <li id="tareas">
+                                <a href="/chinpun/proyectos/tareas/consulta">Tareas</a>
+                            </li>
+                            <li id="alertas">
+                                <a href="/chinpun/proyectos/to-dos/consulta">To-Do</a>
+                            </li>
+
+                        </ul>
+                    </li>
+
+                    <li id="menu-horarios" class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" style="cursor:pointer;">Horarios
+                            <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            <li id="horario-mensual">
+                                <a href="/chinpun/horarios/mensual/consulta">Mensual</a>
+                            </li>
+                            <li id="horario-semanal">
+                                <a href="/chinpun/horarios/semanal/consulta">Semanal</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li id="parking">
+                                <a href="#" onclick="verModalParking()">Parking</a>
+                            </li>
+                            <li id="apertura-cierre">
+                                <a href="#" onclick="verModalApertura()">Apertura/Cierre</a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <li id="menu-utilidades" class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Utilidades <b
+                                class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                            <li id="cheques">
+                                <a href="/chinpun/utilidades/cheques/consulta">Cheques</a>
+                            </li>
+                            <li id="listin">
+                                <a href="/chinpun/utilidades/listin/consulta">Listín</a>
+                            </li>
+                            <li id="wiki">
+                                <a href="/intranet/wiki">Wiki</a>
+                            </li>
+                        </ul>
+                    </li>
+
+
+                </ul>
+
+
+                <ul class="nav pull-right" style="margin-right:30px;">
+                    <li class="dropdown li_notificaciones">
+                        <a href="#" class="dropdown-toggle imagen_inferior" data-toggle="dropdown"
+                           style="padding-top:10px;">
+
+                            <i class="icon-comment icon-white" style="margin-top:3px;">
+
+                            </i>
+                            <!-- 								<b class="caret"></b> -->
+                        </a>
+
+                    </li>
+                    <li id="menu-empleado" class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"
+                           style="padding-bottom:4px; padding-top:7px;">
+
+
+                            <img id="fotoHeader" src="/chinpun/gestion/usuarios/descargarFoto/91"
+                                 class="img-polaroid usr-img-comment"
+                                 style="margin-right:5px; height:20px !important; width:20px !important;"/>
+
+
+                            <!-- 							<img src="/chinpun/resources/img/default_user.png" class="img-polaroid usr-img-comment" style="margin-right:5px;"> -->
+                            <span id="nombreHeader">Jesús</span> <span
+                                id="apellidoHeader">de Mula</span> <b class="caret"></b>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li id="perfil">
+                                <a href="/chinpun/usuarioConectado/perfil/consulta"><i
+                                        class="icon-user"></i> Perfil</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li id="misProyectos">
+                                <a href="/chinpun/usuarioConectado/proyectos/consulta"><i
+                                        class="icon-briefcase"></i> Mis Proyectos</a>
+                            </li>
+                            <li id="misHitos">
+                                <a href="/chinpun/usuarioConectado/hitos/consulta"><i
+                                        class="icon-bookmark"></i> Mis Hitos</a>
+                            </li>
+                            <li id="misTareas">
+                                <a href="/chinpun/usuarioConectado/tareas/consulta"><i
+                                        class="icon-list"></i> Mis Tareas</a>
+                            </li>
+                            <li id="misAlertas">
+                                <a href="/chinpun/usuarioConectado/alertas/consulta"><i
+                                        class="icon-tasks"></i> Mis To-Dos</a>
+                            </li>
+                            <li id="miMatrizAnual">
+                                <a href="/chinpun/gestion/miMatrizAnual/consulta"><i
+                                        class="icon-th-large"></i> Mi Matriz Anual</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li>
+                                <a href="/chinpun/j_spring_security_logout"><i class="icon-off"></i>
+                                    Salir</a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+
+            </div>
+            <!--/.nav-collapse -->
+        </div>
+    </div>
+    <ul class="breadcrumb">
+
+        <li><a href="/chinpun/inicio"><i class="icon-home"></i></a></li>
+
+
+        <!-- menu lateral -->
+
+
+        <!-- 				<button type="button" class="pull-right btn btn-info btn-mini btn-breadcrumb" onclick="mostrarMenuLateral()"> -->
+        <!-- 					<i class="icon-info-sign icon-white"></i> -->
+        <!-- 				</button> -->
+
+
+        <!-- boton sesion -->
+        <input type="hidden" id="estadoSesion" value="false"/>
+
+
+        <button type="button" id="botonSesion"
+                class="pull-right btn btn-success btn-mini btn-breadcrumb"
+                onclick="cambiarEstadoSesion()">
+            <i class="icon-time icon-white"></i> <span id="textoSesion">Iniciar sesión</span>
+        </button>
+
+
+    </ul>
+</div>
+<!-- </nav> -->
+
+<!-- Modal sesion -->
+<div id="modal-fin-sesion" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true"
+                onclick="resetValidacion(validadorSesion)">×
+        </button>
+        <h3>Finalizar sesión</h3>
+    </div>
+
+    <div class="modal-body ">
+        <form class="form-horizontal well well-sin-padding" id="form-fin-sesion">
+            <input type="hidden" id="idFichaje-sesion" name="idFichaje-sesion" value=""/>
+
+            <div class="control-group">
+                <label class="control-label label-mini" for="select-proyecto">Proyecto</label>
+
+                <div class="controls">
+                    <div id="contenedor-proyectos-usuario">
+                        <select id="select-proyecto-sesion" class="span3"
+                                name="select-proyecto-sesion">
+                            <option value="">Seleccione un proyecto</option>
+
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label label-mini" for="select-tarea">Tarea</label>
+
+                <div class="controls">
+                    <div id="contenedor-tareas-sesion">
+                        <select id="select-tarea-sesion" class="span3" name="select-tarea-sesion"
+                                disabled="true">
+                            <option>Seleccione una tarea</option>
+                        </select>
+                        <button class="btn btn-mini btn-primary" type="button"
+                                onclick="modalTareaFichaje()"><i class="icon-plus icon-white"></i>
+                            Insertar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="control-label label-mini" for="observaciones">Observaciones</label>
+
+                <div class="controls">
+                    <textarea id="observaciones-sesion" class="span3" name="observaciones-sesion"
+                              rows="4"></textarea>
+                </div>
+            </div>
+        </form>
+
+    </div>
+
+    <div class="modal-footer">
+        <button class="btn btn-primary btn-mini" onclick="cerrarSesion()">Aceptar</button>
+        <button class="btn btn-mini" data-dismiss="modal" aria-hidden="true"
+                onclick="cerrarModal()">Cancelar
+        </button>
+    </div>
+</div>
+
+<!-- CAPAS QUE MUESTRA LOS ERRORES DEL FORMULARIO-->
+<div id="validaciones">
+    <div id="header-errors" class="page-header alert alert-error">
+        <h6>
+            <i class="icon-eye-close ocultarValidaciones"></i> Errores en el
+            formulario:
+        </h6>
+    </div>
+    <div id="msg-errors" class='alert alert-error'>
+        <ul></ul>
+    </div>
+</div>
+
+<div id="validacionesMin">
+    <div id="validacionesMin-errors" class='alert alert-error'>
+        <i class="icon-warning-sign mostrarValidaciones"></i>
+    </div>
+</div>
+<!-- FIN CAPAS ERRORES FORMULARIO -->
+
+<!-- Form para avisos -->
+<form class="hidden" id="form-avisos" method="get" action="/chinpun/avisos/redirigirAviso">
+    <input type="hidden" name="idParametro" id="idParametro"></input>
+    <input type="hidden" name="idTipoAviso" id="idTipoAviso"></input>
+    <input type="hidden" name="idAviso" id="idAviso"></input>
+</form>
+
+<script type="text/javascript">
+
+function redireccionNotificacionDirecta(idAviso, parametro, tipoAviso) {
+// 	$.post('/chinpun/usuarioConectado/marcarAvisoComoLeido', {idAviso:idAviso}, function() {
+		if(tipoAviso=='insertarToDo' || tipoAviso=='editarToDo' || tipoAviso=='comentarioToDo' || tipoAviso=='personalToDo') {
+			$(location).attr('href', '/chinpun/proyectos/to-dos/'+parametro);
+		}
+		if(tipoAviso=='editarProyecto' || tipoAviso=='personalProyecto') {
+			$(location).attr('href', '/chinpun/proyectos/'+parametro);
+		}
+		if(tipoAviso=='fichajes') {
+			$(location).attr('href', '/chinpun/fichajes/consulta/'+parametro);
+		}
+		if(tipoAviso=='personalTarea' || tipoAviso=='toDoTarea' || tipoAviso=='desvincularToDoTarea' || tipoAviso=='tarea') {
+			$(location).attr('href', '/chinpun/proyectos/tareas/'+parametro);
+		}
+		if(tipoAviso=='tareaHito' || tipoAviso=='desvincularTareaHito' || tipoAviso=='toDoHito' || tipoAviso=='desvincularToDoHito' || tipoAviso=='hito') {
+			$(location).attr('href', '/chinpun/proyectos/hitos/'+parametro);
+		}
+// 	});
+}
+
+
+</script>
+</header>
+
+<div class="container-fluid" style="padding-top:90px; margin-bottom:15px;">
+<div class="row-fluid">
+<div id="content" class="span9">
+
+
+<link href="/chinpun/resources/css/noticias.css" rel="stylesheet">
+<script type="text/javascript" charset="utf8"
+        src="/chinpun/resources/ckeditor/ckeditor.js"></script>
+
+
+<div class="row-fluid" id="contenedor-pantalla">
+<div class="span9" id="noticias-div">
+<legend><i id="icon-news" class="icon-chevron-right" style="margin-top:5px; cursor:pointer;"
+           onclick="mostrarHistorial()"></i> Noticias
+</legend>
+<div class="row-fluid">
+    <div class="span2">
+        <a class="btn btn-mini" data-toggle="button" onclick="openModal()"><i class="icon-plus"></i>
+            Insertar</a>
+    </div>
+</div>
+<div id="div-noticias" class="row-fluid">
+    <div class="span12">
+
+        <div class="row-fluid noticia-row" id="noticia-7">
+            <div class="noticia-avatar-div pull-left">
+
+
+                <img src="/chinpun/gestion/usuarios/descargarFoto/58" class="img-polaroid"
+                     rel="tooltip" title="José Carlos Valero"
+                     style="margin-right:5px; width:35px; height:35px;">
+
+
+            </div>
+            <div class="noticia-box-div toHide-ref" style="margin-left:55px;">
+                <div class="noticia-arrow"></div>
+                <div class="tricky-noticia-arrow"></div>
+                <div class="row-fluid noticia-box-header-row" onclick="hideAction(this)">
+                    <div class="span12 noticia-box-element noticia-box-header-div">
+                        <span class="noticia-titulo">Debug javascript</span>
+                        <a href="#" class="btn btn-link btn-mini pull-right"
+                           style="margin-top:-3px;"><i class="icon-chevron-up change"></i></a>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-body-row toHide">
+                    <div class="span12 noticia-box-element noticia-box-body-div">
+										<span class="noticia-descripcion"
+                                              style="font-size:13px;"><p>
+                                            Hemos dejado<a
+                                                href="http://oficina.crcit.es/intranet/wiki/Console.js">
+                                            una entrada </a>en la wikipedia sobre un peque&ntilde;o
+                                            script que permite conmutar f&aacute;cilmente y de forma
+                                            segura las trazas de javascript por consola. Quiz&aacute;
+                                            os resulte de utilidad.</p>
+<p>
+    &nbsp;</p>
+<p style="margin: 0.4em 0px 0.5em; line-height: 19.1875px; color: rgb(0, 0, 0); font-family: sans-serif; font-size: 13px;">
+    &nbsp;</p>
+</span>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-footer-row">
+                    <div class="span12 noticia-box-element noticia-box-footer-div"
+                         style="padding-top:3px;">
+                        <span class="noticia-fecha" style="font-size:11px;">19/09/2013 16:21</span>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row-fluid noticia-row" id="noticia-6">
+            <div class="noticia-avatar-div pull-left">
+
+
+                <img src="/chinpun/gestion/usuarios/descargarFoto/88" class="img-polaroid"
+                     rel="tooltip" title="Rubén Valero"
+                     style="margin-right:5px; width:35px; height:35px;">
+
+
+            </div>
+            <div class="noticia-box-div toHide-ref" style="margin-left:55px;">
+                <div class="noticia-arrow"></div>
+                <div class="tricky-noticia-arrow"></div>
+                <div class="row-fluid noticia-box-header-row" onclick="hideAction(this)">
+                    <div class="span12 noticia-box-element noticia-box-header-div">
+                        <span class="noticia-titulo">Comida Express CRC Pre-Vacaciones</span>
+                        <a href="#" class="btn btn-link btn-mini pull-right"
+                           style="margin-top:-3px;"><i class="icon-chevron-up change"></i></a>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-body-row toHide">
+                    <div class="span12 noticia-box-element noticia-box-body-div">
+										<span class="noticia-descripcion"
+                                              style="font-size:13px;"><p>
+                                            Como medida para combatir este tedioso calor ma&ntilde;ana
+                                            disfrutaremos de una agradable y ligera comida a las
+                                            15:00 &nbsp;en &quot;La vaca picada&quot; de las tablas,
+                                            llamaremos para reservar esta tarde por lo que <strong>confirmar
+                                            asistencia</strong> lo antes posible a&nbsp;<a
+                                                href="mailto:jcarretero@crcit.es"
+                                                style="color: rgb(0, 0, 204); outline: none; font-family: 'Lucida Grande', Verdana, Arial, Helvetica, sans-serif;">jcarretero@crcit.es</a>
+                                        </p>
+<p>
+    Muchas gracias</p>
+</span>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-footer-row">
+                    <div class="span12 noticia-box-element noticia-box-footer-div"
+                         style="padding-top:3px;">
+                        <span class="noticia-fecha" style="font-size:11px;">31/07/2013 15:19</span>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row-fluid noticia-row" id="noticia-5">
+            <div class="noticia-avatar-div pull-left">
+
+
+                <img src="/chinpun/gestion/usuarios/descargarFoto/87" class="img-polaroid"
+                     rel="tooltip" title="Mario Mira"
+                     style="margin-right:5px; width:35px; height:35px;">
+
+
+            </div>
+            <div class="noticia-box-div toHide-ref" style="margin-left:55px;">
+                <div class="noticia-arrow"></div>
+                <div class="tricky-noticia-arrow"></div>
+                <div class="row-fluid noticia-box-header-row" onclick="hideAction(this)">
+                    <div class="span12 noticia-box-element noticia-box-header-div">
+                        <span class="noticia-titulo">Generador de informes de descripción de bases de datos SQLServer y ORACLE</span>
+                        <a href="#" class="btn btn-link btn-mini pull-right"
+                           style="margin-top:-3px;"><i class="icon-chevron-up change"></i></a>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-body-row toHide">
+                    <div class="span12 noticia-box-element noticia-box-body-div">
+										<span class="noticia-descripcion"
+                                              style="font-size:13px;"><p>
+                                            Hola a todos,</p>
+<p>
+    Hemos desarrollado en la oficina un programita que nos genera un fichero .pdf con la descripci&oacute;n
+    de un esquema de base de datos (Tablas, columnas, tipos de las columnas, descripci&oacute;n de
+    las columnas, claves primarias, claves ajenas, &iacute;ndices y check constraints).</p>
+<p>
+    Creemos que es &uacute;til de cara a la documentaci&oacute;n de los proyectos ya que es una
+    tarea muy com&uacute;n y tediosa.</p>
+<p>
+    Dispon&eacute;is de una descripci&oacute;n del programa y el enlace al SVN para descarg&aacute;roslo
+    en la wiki de la oficina.</p>
+<p>
+    Os pongo un acceso directo <a
+        href="http://oficina.crcit.es/intranet/wiki/Des_tablas">aqu&iacute;</a>.</p>
+<p>
+    Un saludo!</p>
+</span>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-footer-row">
+                    <div class="span12 noticia-box-element noticia-box-footer-div"
+                         style="padding-top:3px;">
+                        <span class="noticia-fecha" style="font-size:11px;">29/07/2013 17:09</span>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row-fluid noticia-row" id="noticia-4">
+            <div class="noticia-avatar-div pull-left">
+
+
+                <img src="/chinpun/gestion/usuarios/descargarFoto/83" class="img-polaroid"
+                     rel="tooltip" title="Daniel Carpintero"
+                     style="margin-right:5px; width:35px; height:35px;">
+
+
+            </div>
+            <div class="noticia-box-div toHide-ref" style="margin-left:55px;">
+                <div class="noticia-arrow"></div>
+                <div class="tricky-noticia-arrow"></div>
+                <div class="row-fluid noticia-box-header-row" onclick="hideAction(this)">
+                    <div class="span12 noticia-box-element noticia-box-header-div">
+                        <span class="noticia-titulo">Camino de Santiago</span>
+                        <a href="#" class="btn btn-link btn-mini pull-right"
+                           style="margin-top:-3px;"><i class="icon-chevron-up change"></i></a>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-body-row toHide">
+                    <div class="span12 noticia-box-element noticia-box-body-div">
+										<span class="noticia-descripcion"
+                                              style="font-size:13px;"><p>
+                                            Buenas a todos.</p>
+<p>
+    Este s&aacute;bado aprovecho unas semanas de vacaciones para emprender la que espero que sea una
+    ilusionante aventura: salgo desde mi casa en Madrid para completar el Camino de Santiago andando
+    en unas 2 semanas. Ser&aacute; duro, me saldr&aacute;n unos 50 km diarios, y no s&eacute; hasta
+    donde llegar&eacute; o si tendr&eacute; que alargarlo para llegar.</p>
+<p>
+    En cualquier caso, os dejo por aqu&iacute; un enlace al blog donde ir&eacute; publicando algunas
+    fotillos, comentarios y dem&aacute;s seg&uacute;n vaya pudiendo (y si la bater&iacute;a del
+    iPhone lo permite):</p>
+<p>
+    <a href="http://danicmorales.tumblr.com/">danicmorales.tumblr.com</a></p>
+<p>
+    Felices vacaciones a todos los que os las cog&aacute;is estos d&iacute;as, y al resto, pasad
+    igualmente un genial verano <img alt="laugh" height="20"
+                                     src="/chinpun/resources/ckeditor/plugins/smiley/images/teeth_smile.gif"
+                                     title="laugh" width="20"/></p>
+</span>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-footer-row">
+                    <div class="span12 noticia-box-element noticia-box-footer-div"
+                         style="padding-top:3px;">
+                        <span class="noticia-fecha" style="font-size:11px;">26/07/2013 16:40</span>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row-fluid noticia-row" id="noticia-3">
+            <div class="noticia-avatar-div pull-left">
+
+
+                <img src="/chinpun/gestion/usuarios/descargarFoto/57" class="img-polaroid"
+                     rel="tooltip" title="Alberto Núñez"
+                     style="margin-right:5px; width:35px; height:35px;">
+
+
+            </div>
+            <div class="noticia-box-div toHide-ref" style="margin-left:55px;">
+                <div class="noticia-arrow"></div>
+                <div class="tricky-noticia-arrow"></div>
+                <div class="row-fluid noticia-box-header-row" onclick="hideAction(this)">
+                    <div class="span12 noticia-box-element noticia-box-header-div">
+                        <span class="noticia-titulo">Felicidades!</span>
+                        <a href="#" class="btn btn-link btn-mini pull-right"
+                           style="margin-top:-3px;"><i class="icon-chevron-up change"></i></a>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-body-row toHide">
+                    <div class="span12 noticia-box-element noticia-box-body-div">
+										<span class="noticia-descripcion"
+                                              style="font-size:13px;"><p>
+                                            Felicidades Antonio !!</p>
+<p>
+    Est&aacute; claro que la edad est&aacute; equivocada aqu&iacute; en Chinp&uacute;n... &iquest;no?&nbsp;<img
+        alt="smiley" height="20"
+        src="/chinpun/resources/ckeditor/plugins/smiley/images/regular_smile.gif" title="smiley"
+        width="20"/></p>
+</span>
+                    </div>
+                </div>
+                <div class="row-fluid noticia-box-footer-row">
+                    <div class="span12 noticia-box-element noticia-box-footer-div"
+                         style="padding-top:3px;">
+                        <span class="noticia-fecha" style="font-size:11px;">15/07/2013 10:26</span>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+</div>
+
+<div class="span3" id="widget-div" style="font-size:12px;">
+    <div class="row-fluid widget-cumpleanos widget toHide-ref">
+        <div class="span12">
+            <div class="row-fluid wdiget-cumpleanos-header-row widget-header btn-primary"
+                 onclick="hideAction(this)"
+                 style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                    <span><span class="icon-widget"><i class="icon-gift icon-white"></i></span> Cumpleaños</span>
+                    <a href="#" class="btn btn-link btn-mini pull-right" style="padding-top:0px;"><i
+                            class="icon-chevron-up icon-white change"></i></a>
+                </div>
+            </div>
+            <div class="row-fluid widget-cumpleanos-body-row toHide">
+                <div class="span12 widget-element widget-body">
+                    <ul class="unstyled">
+
+
+                        <li>Jueves, Juan Luis García López (28).</li>
+
+
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 		<div class="row-fluid widget-parking widget toHide-ref"> -->
+    <!-- 			<div class="span12"> -->
+    <!-- 				<div class="row-fluid wdiget-parking-header-row widget-header btn-primary" onclick="hideAction(this)" style="border-top-right-radius:4px;border-top-left-radius:4px;"> -->
+    <!-- 					<div class="span12 widget-element" style="height:20px; padding-top:5px"> -->
+
+    <!-- 						<a href="#" class="btn btn-link btn-mini pull-right" style="padding-top:0px;"><i class="icon-chevron-up icon-white change"></i></a> -->
+    <!-- 					</div> -->
+    <!-- 				</div> -->
+    <!-- 				<div class="row-fluid widget-parking-body-row toHide" style=""> -->
+    <!-- 					<div class="span12 widget-element widget-body"> -->
+    <!-- 						<ul class="unstyled"> -->
+    <!-- 							<li></li> -->
+    <!-- 						</ul> -->
+    <!-- 					</div> -->
+    <!-- 				</div> -->
+    <!-- 			</div> -->
+    <!-- 		</div> -->
+    <div class="row-fluid widget-ac widget toHide-ref">
+        <div class="span12">
+            <div class="row-fluid wdiget-ac-header-row widget-header btn-primary"
+                 onclick="hideAction(this)"
+                 style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                    <span><span class="icon-widget"><i class="icon-lock icon-white"></i></span> Apertura/Cierre</span>
+                    <a href="#" class="btn btn-link btn-mini pull-right" style="padding-top:0px;"><i
+                            class="icon-chevron-up icon-white change"></i></a>
+                </div>
+            </div>
+            <div class="row-fluid widget-ac-body-row toHide">
+                <div id="widget-ac" class="span12 widget-element widget-body">
+                    <ul class="unstyled">
+                        <li>
+                            <div id="datepicker-apertura-cierre-noticias"></div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row-fluid widget-ac widget toHide-ref">
+        <div class="span12">
+            <div class="row-fluid wdiget-ac-header-row widget-header btn-primary"
+                 onclick="hideAction(this)"
+                 style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                    <span><span class="icon-widget"><i class="icon-road icon-white"></i></span> Parking</span>
+                    <a href="#" class="btn btn-link btn-mini pull-right" style="padding-top:0px;"><i
+                            class="icon-chevron-up icon-white change"></i></a>
+                </div>
+            </div>
+            <div class="row-fluid widget-ac-body-row toHide">
+                <div id="widget-ac" class="span12 widget-element widget-body">
+                    <ul class="unstyled">
+                        <li>
+                            <div id="datepicker-parking-noticias"></div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row-fluid widget-politica widget widget-header btn-info"
+         onclick="politicaDeEmpresa()">
+        <div class="span12 widget-element" style="height:20px; padding-top:5px;">
+            <span><span class="icon-widget"><i class="icon-briefcase icon-white"></i></span> Política de empresa</span>
+        </div>
+    </div>
+    <div class="row-fluid widget-buzon widget widget-header btn-info">
+        <div class="span12 widget-element" style="height:20px; padding-top:5px;"
+             onclick="muestraSugerencia()">
+            <span><span class="icon-widget"><i class="icon-bullhorn icon-white"></i></span> Buzón de sugerencias</span>
+        </div>
+    </div>
+</div>
+</div>
+
+<div id="contenedor-historial">
+    <div class="hidden" id="historial-div" style="margin-top:5px;">
+
+
+        <div class="row-fluid historial toHide-ref" style="margin-bottom:10px; font-size:12px;">
+            <div class="span12">
+                <div class="row-fluid historial-header btn-primary" onclick="hideAction(this)"
+                     style="border-top-right-radius:4px;border-top-left-radius:4px;border-bottom-left-radius:4px;border-bottom-right-radius:4px;">
+                    <div class="span12 historial-element"
+                         style="height:20px; padding-top:5px !important;">
+                        <span><span class="icon-widget"><i
+                                class="icon-calendar icon-white"></i></span> 2013</span>
+                        <a href="#" class="btn btn-link btn-mini pull-right"
+                           style="padding-top:0px;"><i
+                                class="icon-chevron-down icon-white change"></i></a>
+                    </div>
+                </div>
+
+                <div class="row-fluid toHide historial-body">
+                    <div class="span12 historial-element historial-body"
+                         onclick="cargarNoticiasMes('6', '2013')"
+                         style="cursor:pointer; margin-left:10px;">
+                        Junio (2)
+                    </div>
+                </div>
+
+
+                <div class="row-fluid toHide historial-body">
+                    <div class="span12 historial-element historial-body"
+                         onclick="cargarNoticiasMes('7', '2013')"
+                         style="cursor:pointer; margin-left:10px;">
+                        Julio (5)
+                    </div>
+                </div>
+
+
+                <div class="row-fluid toHide historial-body">
+                    <div class="span12 historial-element historial-body"
+                         onclick="cargarNoticiasMes('9', '2013')"
+                         style="cursor:pointer; margin-left:10px;">
+                        Septiembre (1)
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-edicion" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true"
+                onclick="resetValidacion(validador)">×
+        </button>
+        <h3 class="modal-edicion-h3">Publicar noticia</h3>
+    </div>
+    <div class="modal-body" style="padding-bottom:0px;">
+        <form class="form-horizontal" id="formNoticia" model-attribute="noticia"
+              style="margin-bottom:0px !important;">
+            <div class="control-group">
+                <label class="control-label label-mini" for="titulo">Título</label>
+
+                <div class="controls">
+                    <input minlength="5" name="titulo" class="input-block-level titulo span11"
+                           type="text" placeholder="Título noticia">
+                    <input name="idNoticia" type="hidden" class="idNoticia">
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label label-mini" for="descripcion">Noticia</label>
+
+                <div class="controls">
+                    <div class="span11">
+                        <textarea id="descripcion" name="descripcion"
+                                  class="input-block-level descripcion" placeholder="Noticia..."
+                                  rows="6" style="width:352px;"></textarea>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a id="btn-enviar-noticia" class="btn btn-primary btn-mini" onclick="guardarNoticia()">Publicar</a>
+        <a class="btn btn-mini" data-dismiss="modal" aria-hidden="true"
+           onclick="resetValidacion(validador)">Cerrar</a>
+    </div>
+</div>
+
+<div id="modal-sugerencia" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true"
+                onclick="resetValidacion(validadorSugerencias)">×
+        </button>
+        <h3 class="modal-edicion-h3">Buzón de sugerencias</h3>
+    </div>
+    <div class="modal-body" style="padding-bottom:0px;">
+        <form class="form-horizontal" id="formSugerencia" style="margin-bottom:0px !important;">
+            <div class="control-group">
+                <label class="control-label label-mini" for="tituloSugerencia">Título</label>
+
+                <div class="controls">
+                    <input minlength="5" id="titulo-sugerencia" name="tituloSugerencia"
+                           class="input-block-level titulo span11" type="text"
+                           placeholder="Título sugerencia">
+                </div>
+            </div>
+            <div class="control-group">
+                <label class="control-label label-mini" for="sugerencia">Sugerencia</label>
+
+                <div class="controls">
+                    <div class="span11">
+                        <textarea id="sugerencia" name="sugerencia" class="input-block-level"
+                                  placeholder="Sugerencia..." rows="6"
+                                  style="width:352px;"></textarea>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a id="btn-enviar-sugerencia" class="btn btn-primary btn-mini" onclick="enviarSugerencia()">Enviar</a>
+        <a class="btn btn-mini" data-dismiss="modal" aria-hidden="true"
+           onclick="resetValidacion(validadorSugerencias)">Cerrar</a>
+    </div>
+</div>
+
+<script>
+$('nav').css('z-index',2);
+var TextEnriquecido = true;
+var Meses = ['Enero', 'Febrero', 'Marzo', 'Abril','Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+//En la variable año guardo cada vez que paso por todos los meses de un año, una constante para sumarsela o restarsela al
+//año actual, para la realización de las consultas
+var año=0;
+var noticiaBorrar;
+var historialOculto=true;
+var validator;
+var validadorSugerencias;
+
+$(document).ready(function() {
+
+//ckeditor
+CKEDITOR.basePath = '/chinpun/resources/ckeditor/';
+CKEDITOR.replace("descripcion",{
+	toolbar: [
+				[ 'Save','NewPage','DocProps','Preview','Print','-','Templates' ],
+				[ 'Cut','Copy','Paste','PasteText','PasteFromWord','-','Undo','Redo' ],
+				[ 'Find','Replace','-','SelectAll','-','SpellChecker', 'Scayt' ],
+				[ 'Bold','Italic','Underline','Strike','Subscript','Superscript','-','RemoveFormat' ],
+				[ 'NumberedList','BulletedList','-','Outdent','Indent','-','Blockquote','CreateDiv','-','JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiLtr','BidiRtl' ],
+				[ 'Link','Unlink','Anchor' ],
+				[ 'Image','Table','HorizontalRule','Smiley','SpecialChar','PageBreak' ],
+				[ 'Styles','Format','Font','FontSize' ],
+				[ 'TextColor','BGColor' ],
+				[ 'Maximize', 'ShowBlocks' ]
+	  	]
+});
+
+CKEDITOR.replace("sugerencia",{
+	toolbar: [
+				[ 'Save','NewPage','DocProps','Preview','Print','-','Templates' ],
+				[ 'Cut','Copy','Paste','PasteText','PasteFromWord','-','Undo','Redo' ],
+				[ 'Find','Replace','-','SelectAll','-','SpellChecker', 'Scayt' ],
+				[ 'Bold','Italic','Underline','Strike','Subscript','Superscript','-','RemoveFormat' ],
+				[ 'NumberedList','BulletedList','-','Outdent','Indent','-','Blockquote','CreateDiv','-','JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiLtr','BidiRtl' ],
+				[ 'Link','Unlink','Anchor' ],
+				[ 'Image','Table','HorizontalRule','Smiley','SpecialChar','PageBreak' ],
+				[ 'Styles','Format','Font','FontSize' ],
+				[ 'TextColor','BGColor' ],
+				[ 'Maximize', 'ShowBlocks' ]
+	  	]
+});
+
+/* $('#modal-sugerencia').css({
+	left: ($(window).width() - $('#modal-sugerencia').outerWidth())/2
+}); */
+
+consultarColorNoticias(mes);
+
+/* [ 'Save','NewPage','DocProps','Preview','Print','-','Templates' ],
+				[ 'Cut','Copy','Paste','PasteText','PasteFromWord','-','Undo','Redo' ],
+				[ 'Find','Replace','-','SelectAll','-','SpellChecker', 'Scayt' ],
+				[ 'Bold','Italic','Underline','Strike','Subscript','Superscript','-','RemoveFormat' ],
+				[ 'NumberedList','BulletedList','-','Outdent','Indent','-','Blockquote','CreateDiv','-','JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiLtr','BidiRtl' ],
+				[ 'Link','Unlink','Anchor' ],
+				[ 'Image','Table','HorizontalRule','Smiley','SpecialChar','PageBreak' ],
+				[ 'Styles','Format','Font','FontSize' ],
+				[ 'TextColor','BGColor' ],
+				[ 'Maximize', 'ShowBlocks' ]
+
+				{ name: 'document',		items : [ 'Save','NewPage','DocProps','Preview','Print','-','Templates' ] },
+{ name: 'clipboard',	items : [ 'Cut','Copy','Paste','PasteText','PasteFromWord','-','Undo','Redo' ] },
+{ name: 'editing',		items : [ 'Find','Replace','-','SelectAll','-','SpellChecker', 'Scayt' ] },
+{ name: 'basicstyles',	items : [ 'Bold','Italic','Underline','Strike','Subscript','Superscript','-','RemoveFormat' ] },
+{ name: 'paragraph',	items : [ 'NumberedList','BulletedList','-','Outdent','Indent','-','Blockquote','CreateDiv','-','JustifyLeft','JustifyCenter','JustifyRight','JustifyBlock','-','BidiLtr','BidiRtl' ] },
+{ name: 'links',		items : [ 'Link','Unlink','Anchor' ] },
+{ name: 'insert',		items : [ 'Image','Table','HorizontalRule','Smiley','SpecialChar','PageBreak' ] },
+{ name: 'styles',		items : [ 'Styles','Format','Font','FontSize' ] },
+{ name: 'colors',		items : [ 'TextColor','BGColor' ] },
+{ name: 'tools',		items : [ 'Maximize', 'ShowBlocks','-','About' ] } */
+
+//////////////////////////////////////////////////////////////
+////////////////////POSICION FIXED////////////////////////////
+//fijo el ancho
+
+
+// $('#contenido-sidebar').width($(window).width()*3.3/15);
+// $('#contenedor-pantalla').outerWidth($('#sidebar').attr('left')-20);
+// $('#widget-div').width($('#contenedor-pantalla').outerWidth()*3.4/15);
+// $('#noticias-div').width($('#contenedor-pantalla').outerWidth()*11.3/15);
+// var sidebar_width = $(window).width()*3.3/15;
+// var contenido_pantalla_width = $('#sidebar').attr('left')-20;
+// var historial_noticias_width = $('#contenedor-pantalla').outerWidth()*2/15+10;
+// var widget_width = $('#contenedor-pantalla').outerWidth()*3.4/15;
+// var noticias_div_width = $('#contenedor-pantalla').outerWidth()*11.3/15;
+
+// if($(window).width()>=screen.width-20){
+// 	$('#contenido-sidebar,#widget-div').css('position','fixed');
+// 	$('#contenido-sidebar').css('right','20px');
+// 	$('#widget-div').css('left',$('#contenedor-pantalla').outerWidth()-$('#contenido-sidebar').outerWidth()+70);
+// }else{
+// 	$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*11.1/15);
+// }
+
+// //redimension
+// $(window).resize(function() {
+// 	if($(window).width()>=screen.width-20){
+// 		$('#contenido-sidebar,#widget-div').css('position','fixed');
+// 		$('#contenido-sidebar').css('right','20px');
+// 		$('#widget-div').css('left',$('#contenedor-pantalla').outerWidth()-$('#contenido-sidebar').outerWidth()+70);
+// 		$('#contenido-sidebar').width($(window).width()*3/15+30);
+// 		$('#contenedor-pantalla').outerWidth($('#sidebar').attr('left')-20);
+// 		$('#widget-div').width($('#contenedor-pantalla').outerWidth()*3/15+10);
+// 		if(historialOculto){
+// 			$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*11/15+10);
+// 		}else{
+// 			$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.6/15);
+// 		}
+// 		if ($('#estadoMenuLateral').val() == 'true') {
+// 			if(historialOculto){
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*11.3/15);
+// 				$('#noticias-div').css('margin-left','');
+// 				$('#widget-div').width($('#contenedor-pantalla').outerWidth()*3.4/15);
+// 			}else{
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.9/15);
+// 				$('#historial-noticias').css('position','fixed');
+// 				$('#historial-noticias').outerWidth(historial_noticias_width);
+// 				$('#noticias-div').css('margin-left',$('#historial-noticias').outerWidth()+20);
+// 				$('#widget-div').width($('#contenedor-pantalla').outerWidth()*3.4/15);
+// 			}
+// 		}
+// 		if ($('#estadoMenuLateral').val() == 'false') {
+// 			if(historialOculto){
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*12.3/15);
+// 				$('#noticias-div').css('margin-left','');
+// 				$('#widget-div').css('left',$('#contenedor-pantalla').outerWidth()-$('#contenido-sidebar').outerWidth()*7.7/10);
+// 				$('#widget-div').width(widget_width);
+// 			}else{
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.3/12);
+// 				$('#historial-noticias').css('position','fixed');
+// 				$('#historial-noticias').outerWidth(historial_noticias_width);
+// 				$('#noticias-div').css('margin-left',$('#historial-noticias').outerWidth()+20);
+// 				$('#widget-div').css('left',$('#contenedor-pantalla').outerWidth()-$('#contenido-sidebar').outerWidth()*7.7/10);
+// 				$('#widget-div').width(widget_width);
+// 			}
+// 		}
+// 	}else{
+// 		$('#contenido-sidebar,#widget-div,#noticias-div,#historial-noticias').width('');
+// 		$('#contenedor-pantalla').outerWidth('');
+// 		$('#contenido-sidebar,#contenedor-pantalla,#widget-div,#noticias-div,#historial-noticias').css('position','relative');
+// 		$('#contenido-sidebar').css('right','0px');
+// 		$('#widget-div').css('left','0px');
+// 		$('#noticias-div').css('margin-left','');
+// 	}
+// });
+
+// //boton muestra/oculta barra de años
+// $('#icon-news').on("click", function(event){
+// 	event.preventDefault();
+// 	if($(window).width()>=screen.width-20){
+// 		if ($('#estadoMenuLateral').val() == 'true') {
+// 			if(historialOculto){
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*11.3/15);
+// 				$('#noticias-div').css('margin-left','');
+// 			}else{
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.9/15);
+// 				$('#historial-noticias').css('position','fixed');
+// 				$('#historial-noticias').outerWidth(historial_noticias_width);
+// 				$('#noticias-div').css('margin-left',$('#historial-noticias').outerWidth()+20);
+// 			}
+// 		}
+// 		if ($('#estadoMenuLateral').val() == 'false') {
+// 			if(historialOculto){
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*12.3/15);
+// 				$('#noticias-div').css('margin-left','');
+// 			}else{
+// 				$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.3/12);
+// 				$('#historial-noticias').css('position','fixed');
+// 				$('#historial-noticias').outerWidth(historial_noticias_width);
+// 				$('#noticias-div').css('margin-left',$('#historial-noticias').outerWidth()+20);
+// 			}
+// 		}
+// 	}else{
+// 		$('#contenido-sidebar,#widget-div,#noticias-div').width('');
+// 		$('#contenedor-pantalla').outerWidth('');
+// 		$('#contenido-sidebar,#contenedor-pantalla,#widget-div,#noticias-div').css('position','relative');
+// 	}
+// });
+
+// //boton que muestra/oculta sidebar
+// $('#estadoMenuLateral').next('button').on("click", function(event){
+// 	event.preventDefault();
+
+// 	if($(window).width()>=screen.width-20){
+// 		setTimeout(function () {
+// 			//sidebar abierto
+// 			if ($('#estadoMenuLateral').val() == 'true') {
+// 				if(historialOculto){
+// 					$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*11.2/15+10);
+// 				}else{
+// 					$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.9/15);
+// 				}
+// 			}
+// 			//sidebar escondido
+// 			if ($('#estadoMenuLateral').val() == 'false') {
+// 				if(historialOculto){
+// 					$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*12.3/15);
+// 				}else{
+// 					$('#noticias-div').width($('#contenedor-pantalla').outerWidth()*8.4/12);
+// 				}
+// 			}
+// 			$('#widget-div').css('left',$('#contenedor-pantalla').outerWidth()-$('#contenido-sidebar').outerWidth()+70);
+// 		}, 100);
+// 	}else{
+// 		$('#contenido-sidebar,#widget-div,#noticias-div').width('');
+// 		$('#contenedor-pantalla').outerWidth('');
+// 		$('#contenido-sidebar,#contenedor-pantalla,#widget-div,#noticias-div').css('position','relative');
+// 	}
+// });
+
+////////////////////POSICION FIXED////////////////////////////
+//////////////////////////////////////////////////////////////
+
+    validador = $("#formNoticia").validate({
+    	rules: {
+    		titulo: {requiredParam:'"título"'},
+    		descripcion: {requiredParam:'"descripcion"'}
+    	},
+      	errorLabelContainer: "#validaciones div ul",
+      	wrapper: "li",
+		errorClass:"warning",
+		validClass:"valid",
+		highlight: function(element, errorClass, validClass) {
+            $(element).parents('.control-group:first').addClass("error").removeClass(validClass);
+        },
+        unhighlight: function(element, errorClass, validClass) {
+        	$(element).parents('.control-group:first').removeClass("error").addClass(validClass);
+        },
+	});
+
+    validadorSugerencias = $("#formSugerencia").validate({
+    	rules: {
+    		tituloSugerencia: {requiredParam:'"título"'},
+    		sugerencia: {requiredParam:'"sugerencia"'}
+    	},
+      	errorLabelContainer: "#validaciones div ul",
+      	wrapper: "li",
+		errorClass:"warning",
+		validClass:"valid",
+		highlight: function(element, errorClass, validClass) {
+            $(element).parents('.control-group:first').addClass("error").removeClass(validClass);
+        },
+        unhighlight: function(element, errorClass, validClass) {
+        	$(element).parents('.control-group:first').removeClass("error").addClass(validClass);
+        },
+	});
+
+    $('img[rel=tooltip]').tooltip();
+
+    $(window).resize(function() {
+    	recalculaAnchoCalAC();
+    });
+
+	//mediante estas líneas se resetea el validador al pinchar el fondo oscuro de la modal
+	$(document).on('click', '.modal-backdrop', function(event) {
+		event.preventDefault();
+		resetValidacion(validador);
+		resetValidacion(validadorSugerencias);
+	});
+});
+
+
+function enviarSugerencia() {
+	//pasa el texto al textarea
+	CKEDITOR.instances.sugerencia.updateElement();
+	if($("#formSugerencia").valid()) {
+		$('#btn-enviar-sugerencia').html('<img src="/chinpun/resources/img/loading_white.gif" width="14px" height="14px" style="padding-bottom:2px;" /> Enviando...');
+		$('#btn-enviar-sugerencia').addClass('disabled');
+		var onclick = $('#btn-enviar-sugerencia').attr('onclick');
+		$.post('/chinpun/inicio/enviarSugerencia', $('#formSugerencia').serializeArray(), function(msg) {
+			$('#modal-sugerencia').modal('hide');
+			$('#btn-enviar-sugerencia').html('Enviar');
+			$('#btn-enviar-sugerencia').removeClass('disabled');
+			$('#btn-enviar-sugerencia').attr('onclick', onclick);
+			alert(msg[0], msg[1]);
+			$('#titulo-sugerencia').val('');
+			$('#sugerencia').val('');
+			//limpia el editor de texto
+			CKEDITOR.instances.sugerencia.setData('');
+		});
+	}
+}
+
+function mostrarHistorial() {
+	if(historialOculto) {
+		$('#icon-news').attr('class', 'icon-chevron-left');
+		$('#noticias-div').removeClass('span9');
+		$('#noticias-div').addClass('span7');
+		$('#contenedor-pantalla').prepend('<div id="historial-noticias" class="span2">' + $('#historial-div').html() + '</div>');
+		historialOculto=false;
+	} else {
+		$('#historial-noticias').remove();
+		$('#icon-news').attr('class', 'icon-chevron-right');
+		$('#historial-div').addClass('hidden');
+		$('#noticias-div').removeClass('span7');
+		$('#noticias-div').addClass('span9');
+		historialOculto=true;
+	}
+
+}
+
+function openModal(idNoticia){
+	if(!TextEnriquecido) {$('#textarea').wysihtml5();}
+	TextEnriquecido = true;
+
+	var $modal = $("#modal-edicion").modal('show');
+
+	if(idNoticia==null){
+		$modal.find(".modal-edicion-h3").html("Publicar noticia");
+		$modal.find(".idNoticia").val('');
+		$modal.find(".titulo").val('');
+		$modal.find(".descripcion").val('');
+		CKEDITOR.instances.descripcion.setData('');
+	}else{
+		//modal de edicion de noticia
+		$modal.find(".modal-edicion-h3").html("Modificar noticia");
+		var $div = $("#noticia-"+idNoticia);
+		$modal.find(".titulo").val( $div.find(".noticia-titulo").text().trim() );
+		$modal.find(".idNoticia").val(idNoticia);
+		//$("#descripcion").val($(".noticia-descripcion").html());
+		CKEDITOR.instances.descripcion.setData($div.find(".noticia-descripcion").html());
+	}
+}
+
+function eliminarNoticia(idNoticia){
+	confirm('Borrar noticia','¿Est\u00e1 seguro de que desea borrar esta noticia?',function(){
+		$.post("/chinpun/inicio/eliminarNoticia", {idNoticia: idNoticia},function(response, status, xhr) {
+			if (status == "error") {
+	         	alert('Se ha producido un error al eliminar la noticia. Error: ' + xhr.status + " " + xhr.statusText, 'ERROR');
+	        }else{
+	         	alert('La noticia se ha eliminado correctamente', 'OK');
+	       	 	$('#modal-borrar').modal('hide');
+	       	 	cargarHistorial();
+	        }
+
+	        $("#noticia-"+response).fadeOut('600', function() {
+	    		$(this).remove();
+	  		});
+		});
+    });
+}
+
+function guardarNoticia() {
+	//pasa el texto al textarea
+	CKEDITOR.instances.descripcion.updateElement();
+	if($('#formNoticia').valid()) {
+		$('#btn-enviar-noticia').html('<img src="/chinpun/resources/img/loading_white.gif" width="14px" height="14px" style="padding-bottom:2px;" /> Publicando...');
+		$('#btn-enviar-noticia').addClass('disabled');
+		var onclick = $('#btn-enviar-noticia').attr('onclick');
+		$("#div-noticias").load('/chinpun/inicio/guardarNoticia #div-noticias',  $('#formNoticia').serializeArray() ,function(response, status, xhr) {
+            if (status == "error") {
+            	alert('Se ha producido un error al guardar la noticia. Error: ' + xhr.status + " " + xhr.statusText, 'ERROR');
+            } else {
+            	alert('La noticia se ha guardado correctamente', 'OK');
+            	$('#modal-edicion').modal('hide');
+            	$('#btn-enviar-noticia').html('Publicar');
+    			$('#btn-enviar-noticia').removeClass('disabled');
+    			$('#btn-enviar-noticia').attr('onclick', onclick);
+            	cargarHistorial();
+            }
+            $('img[rel=tooltip]').tooltip();
+          	//limpia el editor de texto
+			CKEDITOR.instances.descripcion.setData('');
+		});
+	}
+}
+
+function cargarNoticiasMes(mes, anno) {
+	$("#div-noticias").load('/chinpun/inicio/cargarNoticiasMes #div-noticias',  {mes: mes, ano:anno});
+}
+
+function cargarHistorial() {
+	if($('#historial-noticias').html()==undefined) {
+		$("#contenedor-historial").load('/chinpun/inicio/cargarHistorial #historial-div',  {});
+	} else {
+		mostrarHistorial();
+		$("#contenedor-historial").load('/chinpun/inicio/cargarHistorial #historial-div',  {}, function(){
+			mostrarHistorial();
+		});
+	}
+}
+
+function politicaDeEmpresa() {
+	document.location.href = '/intranet/wiki';
+}
+
+function muestraSugerencia(){
+	$('#modal-sugerencia').modal('show');
+}
+
+</script>
+</div>
+
+<div id="sidebar" class="span3" style="margin-left:20px;">
+
+
+    <div id="contenido-sidebar" style="font-size:12px;">
+
+        <form id="loginForm" class="well2 form-horizontal" method="POST" action="/chinpun/login"
+              style="padding-top:0px; padding-bottom:0px; margin-bottom:0px; padding-left:17px;">
+            <div class="row-fluid widget-info-diaria widget toHide-ref">
+                <div class="span12">
+                    <div class="row-fluid wdiget-info-diaria-header-row widget-header btn-primary"
+                         onclick="hideAction(this)"
+                         style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                        <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                            <span><span class="icon-widget"><i
+                                    class="icon-info-sign icon-white"></i></span> Información diaria</span>
+                            <a href="#" class="btn btn-link btn-mini pull-right"
+                               style="padding-top:0px;"><i
+                                    class="icon-chevron-up icon-white change"></i></a>
+                        </div>
+                    </div>
+                    <div class="row-fluid widget-info-diaria-body-row toHide">
+                        <div class="span12 widget-element widget-body">
+                            <ul class="unstyled">
+                                <li>
+                                    <a id="datos-sesion" onclick="cambiarEstadoSesion()">
+
+
+                                        No tiene ninguna sesión iniciada
+
+
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row-fluid widget-info-semanal widget toHide-ref">
+                <div class="span12">
+                    <div class="row-fluid wdiget-info-semanal-header-row widget-header btn-primary"
+                         onclick="hideAction(this)"
+                         style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                        <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                            <span><span class="icon-widget"><i
+                                    class="icon-info-sign icon-white"></i></span> Información semanal</span>
+                            <a href="#" class="btn btn-link btn-mini pull-right"
+                               style="padding-top:0px;"><i
+                                    class="icon-chevron-up icon-white change"></i></a>
+                        </div>
+                    </div>
+                    <div class="row-fluid widget-info-semanal-body-row toHide">
+                        <div class="span12 widget-element widget-body">
+                            <ul class="unstyled">
+                                <li>Te faltan 16 horas 35 minutos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row-fluid widget-balance-menusal widget toHide-ref">
+                <div class="span12">
+                    <div class="row-fluid wdiget-balance-mensual-header-row widget-header btn-primary"
+                         onclick="hideAction(this)"
+                         style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                        <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                            <span><span class="icon-widget"><i
+                                    class="icon-time icon-white"></i></span> Balance mensual</span>
+                            <a href="#" class="btn btn-link btn-mini pull-right"
+                               style="padding-top:0px;"><i
+                                    class="icon-chevron-up icon-white change"></i></a>
+                        </div>
+                    </div>
+                    <div class="row-fluid widget-balance-mensual-body-row toHide">
+                        <div class="span12 widget-element widget-body">
+                            <ul class="unstyled">
+                                <li>Te has pasado 28 horas 6 minutos</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="row-fluid widget-gestion-ausencias widget toHide-ref">
+                <div class="span12">
+                    <div class="row-fluid wdiget-gestion-ausencias-header-row widget-header btn-primary"
+                         onclick="hideAction(this)"
+                         style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                        <div class="span12 widget-element" style="height:20px; padding-top:5px">
+                            <span><span class="icon-widget"><i
+                                    class="icon-time icon-white"></i></span> Gestión de Ausencias</span>
+                            <a href="#" class="btn btn-link btn-mini pull-right"
+                               style="padding-top:0px;"><i
+                                    class="icon-chevron-up icon-white change"></i></a>
+                        </div>
+                    </div>
+                    <div class="row-fluid widget-balance-mensual-body-row toHide">
+                        <div class="span12 widget-element widget-body">
+                            <ul class="unstyled">
+
+                                <li>
+                                    <a href="#" rel="tooltip" data-placement="bottom"
+                                       title='  02/01/2013&nbsp;&nbsp;     03/01/2013&nbsp;&nbsp;     04/01/2013&nbsp;&nbsp;     11/01/2013&nbsp;&nbsp;     14/01/2013&nbsp;&nbsp;     15/01/2013&nbsp;&nbsp;     16/01/2013&nbsp;&nbsp;     17/01/2013&nbsp;&nbsp;     18/01/2013&nbsp;&nbsp;     21/01/2013&nbsp;&nbsp;     22/01/2013&nbsp;&nbsp;     23/01/2013&nbsp;&nbsp;     24/01/2013&nbsp;&nbsp;     25/01/2013&nbsp;&nbsp;     29/01/2013&nbsp;&nbsp;     06/03/2013&nbsp;&nbsp;     07/03/2013&nbsp;&nbsp;     08/03/2013&nbsp;&nbsp;     19/03/2013&nbsp;&nbsp;     25/03/2013&nbsp;&nbsp;     26/03/2013&nbsp;&nbsp;     27/03/2013&nbsp;&nbsp;     18/04/2013&nbsp;&nbsp;     24/04/2013&nbsp;&nbsp;     30/04/2013&nbsp;&nbsp;     03/05/2013&nbsp;&nbsp;     23/05/2013&nbsp;&nbsp;     24/05/2013&nbsp;&nbsp;     27/05/2013&nbsp;&nbsp;     29/05/2013&nbsp;&nbsp;     30/05/2013&nbsp;&nbsp;     31/05/2013&nbsp;&nbsp;     03/06/2013&nbsp;&nbsp;     04/06/2013&nbsp;&nbsp;     05/06/2013&nbsp;&nbsp;     06/06/2013&nbsp;&nbsp;     07/06/2013&nbsp;&nbsp;     10/06/2013&nbsp;&nbsp;     11/06/2013&nbsp;&nbsp;     12/06/2013&nbsp;&nbsp;     13/06/2013&nbsp;&nbsp;     14/06/2013&nbsp;&nbsp;     21/06/2013&nbsp;&nbsp;     24/06/2013&nbsp;&nbsp;     15/07/2013&nbsp;&nbsp;     02/08/2013&nbsp;&nbsp;     05/08/2013&nbsp;&nbsp;     06/08/2013&nbsp;&nbsp;     07/08/2013&nbsp;&nbsp;     08/08/2013&nbsp;&nbsp;     29/08/2013&nbsp;&nbsp;     03/09/2013&nbsp;&nbsp;     04/09/2013&nbsp;&nbsp;     05/09/2013&nbsp;&nbsp;     06/09/2013&nbsp;&nbsp;     09/09/2013&nbsp;&nbsp;     10/09/2013&nbsp;&nbsp;   '>
+                                        Tiene 57 días sin justificar
+                                    </a>
+                                </li>
+
+
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="row-fluid widget-trabajo widget toHide-ref">
+                <div class="span12">
+                    <div class="row-fluid wdiget-trabajo-header-row widget-header btn-primary"
+                         onclick="hideAction(this)"
+                         style="border-top-right-radius:4px;border-top-left-radius:4px;">
+                        <div class="span12 widget-element"
+                             style="height:20px; padding-top:5px !important;">
+                            <span><span class="icon-widget"><i
+                                    class="icon-list icon-white"></i></span> Trabajo semanal</span>
+                            <a href="#" class="btn btn-link btn-mini pull-right"
+                               style="padding-top:0px;"><i
+                                    class="icon-chevron-up icon-white change"></i></a>
+                        </div>
+                    </div>
+                    <div class="row-fluid widget-trabajo-body-row toHide">
+                        <div class="span12 widget-element widget-body">
+                            <ul class="unstyled">
+
+
+                                <li>
+                                    <i class="icon-ok pull-left" style="margin-top:2px;"></i>
+
+                                    <div style="margin-left:17px;">No tienes hitos ni to-dos que
+                                        terminen esta semana
+                                    </div>
+                                </li>
+
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+    </div>
+
+    <script>
+$(document).ready(function(){
+	$("a[rel=tooltip]").tooltip();
+});
+
+    </script>
+</div>
+
+</div>
+</div>
+
+<div id="push"></div>
+
+</div>
+
+<div id="footer">
+    <footer class="footer">
+
+
+        <div class="container text-center" id="footer">
+            <p style="padding-top: 10px;">&copy; Chinpún - CRC Information Technologies S.L.</p>
+        </div>
+
+    </footer>
+</div>
+
+<input id="contextPath" value="/chinpun" type="hidden"/>
+
+<!-- MODAL APERTURA/CIERRE -->
+<div id="modal-apertura-cierre" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true">
+
+<div class="modal-header">
+    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+    <h3 id="myModalLabel"><b>Apertura/Cierre</b></h3>
+</div>
+
+<div class="modal-body">
+<div class="container-fluid">
+<div class="row-fluid span12" id="campo-fecha" align="center">
+    <u><label class="control-label" id="fechaSeleccion" for="apertura"></label></u>
+</div>
+<div class="row-fluid">
+
+<div class="control-group span5" id="dpicker">
+    <div id="datepicker-apertura-cierre">
+    </div>
+</div>
+
+<div id="vista-semanal" style="display:none">
+<!-- 				vista semanal -->
+<div class="row-fluid">
+    <div class="span12">
+        <div class="btn-group span4 offset4">
+            <button class="btn btn-mini" onclick="atrasarSemana()"><</button>
+            <button id="semana-del" class="btn btn-mini"></button>
+            <button class="btn btn-mini" onclick="adelantarSemana()">></button>
+        </div>
+    </div>
+</div>
+
+<div class="row-fluid">
+<div class="span12">
+<div class="row-fluid">
+    <label class="control-label span4 offset3">&nbsp &nbsp &nbsp Apertura</label>
+    <input type="hidden" value="A" name="accion-apertura-semana"/>
+    <label class="control-label span4">&nbsp &nbsp &nbsp Cierre</label>
+</div>
+
+<div class="span12" id="lunes">
+    <div class="control-group">
+        <div class='span3'>
+            <label id="label-lunes" class="control-label"></label>
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoA0"/>
+                <input class="input-medium nombreApertura" id="nombreApertura0" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaApertura0"/>
+            </div>
+
+
+        </div>
+
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoC0"/>
+                <input class="input-medium nombreCierre" id="nombreCierre0" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaCierre0"/>
+            </div>
+
+
+        </div>
+    </div>
+
+
+    <div class="control-group">
+        <div class="controls span4 offset3">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-align-justify" rel="tooltip"
+                                        data-placement="bottom" title="Observaciones"></i></span>
+                <input class="input-medium observacionesApertura" id="observacionesApertura0"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+        </div>
+
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i rel="tooltip" data-placement="bottom" title="Observaciones"
+                                        class="icon-align-justify"></i></span>
+                <input class="input-medium observacionesCierre" id="observacionesCierre0"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div class="span11">
+    <hr>
+</div>
+<div class="span12" id="martes">
+    <div class="control-group">
+        <div class='span3'>
+            <label id="label-martes" class="control-label"></label>
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoA1"/>
+                <input class="input-medium nombreApertura" id="nombreApertura1" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaApertura1"/>
+            </div>
+
+
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoC1"/>
+                <input class="input-medium nombreCierre" id="nombreCierre1" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaCierre1"/>
+            </div>
+
+
+        </div>
+    </div>
+    <div class="control-group">
+        <div class="controls span4 offset3">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-align-justify" rel="tooltip"
+                                        data-placement="bottom" title="Observaciones"></i></span>
+                <input class="input-medium observacionesApertura" id="observacionesApertura1"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+        </div>
+
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i rel="tooltip" data-placement="bottom" title="Observaciones"
+                                        class="icon-align-justify"></i></span>
+                <input class="input-medium observacionesCierre" id="observacionesCierre1"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div class="span11">
+    <hr>
+</div>
+<div class="span12" id="miercoles">
+    <div class="control-group">
+        <div class='span3'>
+            <label id="label-miercoles" class="control-label"></label>
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoA2"/>
+                <input class="input-medium nombreApertura" id="nombreApertura2" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaApertura2"/>
+            </div>
+
+
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoC2"/>
+                <input class="input-medium nombreCierre" id="nombreCierre2" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaCierre2"/>
+            </div>
+
+
+        </div>
+    </div>
+    <div class="control-group">
+        <div class="controls span4 offset3">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-align-justify" rel="tooltip"
+                                        data-placement="bottom" title="Observaciones"></i></span>
+                <input class="input-medium observacionesApertura" id="observacionesApertura2"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+        </div>
+
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i rel="tooltip" data-placement="bottom" title="Observaciones"
+                                        class="icon-align-justify"></i></span>
+                <input class="input-medium observacionesCierre" id="observacionesCierre2"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div class="span11">
+    <hr>
+</div>
+<div class="span12" id="jueves">
+    <div class="control-group">
+        <div class='span3'>
+            <label id="label-jueves" class="control-label"></label>
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoA3"/>
+                <input class="input-medium nombreApertura" id="nombreApertura3" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaApertura3"/>
+            </div>
+
+
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoC3"/>
+                <input class="input-medium nombreCierre" id="nombreCierre3" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaCierre3"/>
+            </div>
+
+
+        </div>
+    </div>
+    <div class="control-group">
+        <div class="controls span4 offset3">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-align-justify" rel="tooltip"
+                                        data-placement="bottom" title="Observaciones"></i></span>
+                <input class="input-medium observacionesApertura" id="observacionesApertura3"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+        </div>
+
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i rel="tooltip" data-placement="bottom" title="Observaciones"
+                                        class="icon-align-justify"></i></span>
+                <input class="input-medium observacionesCierre" id="observacionesCierre3"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div class="span11">
+    <hr>
+</div>
+<div class="span12" id="viernes">
+    <div class="control-group">
+        <div class='span3'>
+            <label id="label-viernes" class="control-label"></label>
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoA4"/>
+                <input class="input-medium nombreApertura" id="nombreApertura4" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaApertura4"/>
+            </div>
+
+
+        </div>
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i class="icon-user"></i></span>
+                <input type="hidden" id="idEstadoC4"/>
+                <input class="input-medium nombreCierre" id="nombreCierre4" type="text"
+                       placeholder="Nombre" readonly/>
+                <input type="hidden" id="idPersonaCierre4"/>
+            </div>
+
+
+        </div>
+    </div>
+    <div class="control-group">
+        <div class="controls span4 offset3">
+
+
+            <div class="input-prepend span8">
+                <span class="add-on"><i class="icon-align-justify" rel="tooltip"
+                                        data-placement="bottom" title="Observaciones"></i></span>
+                <input class="input-medium observacionesApertura" id="observacionesApertura4"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+        </div>
+
+        <div class="controls span4">
+
+
+            <div class="input-prepend span6">
+                <span class="add-on"><i rel="tooltip" data-placement="bottom" title="Observaciones"
+                                        class="icon-align-justify"></i></span>
+                <input class="input-medium observacionesCierre" id="observacionesCierre4"
+                       type="text" placeholder="Observaciones" readonly/>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+
+
+</div>
+</div>
+</div>
+
+
+<div id="nombres-apertura-cierre" class="control-group span6">
+    <!--	Modelos para pintar de forma sencilla con js	-->
+
+    <!--	Modelos para mostrar las aperturas ya existentes	-->
+
+
+    <div id="modelo-apertura-existentes" style="display:none">
+        <div class="row-fluid input-apertura">
+            <div class="span10 input-append">
+                <input type="hidden" class="idEstadoApertura"/>
+                <input type="hidden" class="idPersonaApertura"/>
+                <input type="text" class="nombrePersonaApertura" placeholder="Nombre" readonly/>
+									<span class="add-on comentario" rel="tooltip" title=""
+                                          data-placement="right">
+										<i class="icon-question-sign"></i>
+									</span>
+									<span class="add-on btn-danger">
+										<i class="icon-trash"></i>
+									</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!--	Modelos para mostrar el input de aperturas	-->
+
+
+    <div id="modelo-apertura-add" style="display:none">
+        <div class="row-fluid input-apertura">
+            <div class="input-prepend input-append span10">
+                <input type="hidden" class="input-idEstadoApertura"/>
+                <input type="hidden" class="input-idPersonaApertura"/>
+									<span class="add-on btn-primary">
+										<a>
+                                            <i class="icon-user"></i>
+                                        </a>
+									</span>
+                <input type="text" class="input-nombrePersonaApertura" placeholder="Nombre"
+                       readonly/>
+									<span class="add-on btn-success">
+										<i class="icon-plus"></i>
+									</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!--	Modelos para mostrar los cierres ya existentes	-->
+
+
+    <div id="modelo-cierre-existentes" style="display:none">
+        <div class="row-fluid input-cierre">
+            <div class="input-append span10">
+                <input type="hidden" class="idEstadoCierre"/>
+                <input type="hidden" class="idPersonaCierre"/>
+                <input type="text" class="nombrePersonaCierre" placeholder="Nombre" readonly/>
+									<span class="add-on comentario" rel="tooltip"
+                                          data-placement="right">
+										<i class="icon-question-sign"></i>
+									</span>
+									<span class="add-on btn-danger">
+										<i class="icon-trash"></i>
+									</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!--	Modelos para mostrar el input de cierres	-->
+
+
+    <div id="modelo-cierre-add" style="display:none">
+        <div class="row-fluid input-cierre">
+            <div class="input-prepend input-append span10">
+                <input type="hidden" class="input-idEstadoCierre"/>
+                <input type="hidden" class="input-idPersonaCierre"/>
+									<span class="add-on btn-primary">
+										<i class="icon-user"></i>
+									</span>
+                <input type="text" class="input-nombrePersonaCierre" placeholder="Nombre" readonly/>
+									<span class="add-on btn-success">
+										<i class="icon-plus"></i>
+									</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!--	Muestra de las aperturas y cierres	-->
+
+    <div id="apertura" class="row-fluid span12">
+        <div class="row-fluid span12">
+            <label class="control-label label-mini">Apertura</label>
+            <input type="hidden" value="A" name="accion-apertura"/>
+        </div>
+        <div id="apertura-added" class="row-fluid span12"
+             style="max-height: 105px; overflow: auto;"></div>
+        <div id="apertura-add" class="row-fluid span12"></div>
+    </div>
+
+
+    <div id="cierre" class="row-fluid span12">
+        <div>
+            <label class="control-label label-mini">Cierre</label>
+            <input type="hidden" value="C" name="accion-cierre"/>
+        </div>
+        <div id="cierre-added" class="row-fluid span12"
+             style="max-height: 105px; overflow: auto;"></div>
+        <div id="cierre-add" class="row-fluid span12"></div>
+    </div>
+</div>
+</div>
+</div>
+<!-- container-fluid -->
+
+</div>
+
+<div class="modal-footer">
+    <div class="row-fluid">
+
+        <button class="btn btn-mini" data-dismiss="modal" aria-hidden="true">Cerrar</button>
+
+    </div>
+</div>
+</div>
+<!-- FINAL MODAL APERTURA/CIERRE -->
+
+<!-- Modal observaciones apertura -->
+<div id="modal-observaciones-apertura" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true" style="z-index: 1100">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="myModalLabel">
+            ¿Desea incluir observaciones en la apertura?
+        </h3>
+    </div>
+
+    <div class="modal-body modal-body-sin-padding form-horizontal">
+        <div class="row-fluid">
+            <div class="control-group span12">
+                <label class="control-label label-mini">Observaciones</label>
+
+                <div class="controls controls-small">
+                    <textarea id="input-observacionesApertura" class="span12" rows="5"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button class="btn btn-mini btn-primary" onclick="annadirApertura()">Guardar apertura
+        </button>
+        <button class="btn btn-mini" data-dismiss="modal" aria-hidden="true">Cancelar</button>
+    </div>
+</div>
+
+<!-- Modal observaciones cierre -->
+<div id="modal-observaciones-cierre" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true" style="z-index: 1100">
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="myModalLabel">
+            ¿Desea incluir observaciones en el cierre?
+        </h3>
+    </div>
+
+    <div class="modal-body modal-body-sin-padding form-horizontal">
+        <div class="row-fluid">
+            <div class="control-group span12">
+                <label class="control-label label-mini">Observaciones</label>
+
+                <div class="controls controls-small">
+                    <textarea id="input-observacionesCierre" class="span12" rows="5"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button class="btn btn-mini btn-primary" onclick="annadirCierre()">Guardar cierre</button>
+        <button class="btn btn-mini" data-dismiss="modal" aria-hidden="true">Cancelar</button>
+    </div>
+</div>
+
+<!-- MODAL PARKING -->
+
+<div id="modal-parking" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true">
+
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3><b>Parking</b></h3>
+    </div>
+
+    <div class="modal-body">
+        <div class="container-fluid">
+
+            <div class="row-fluid" id="calendario-parking">
+                <div class="span12">
+                    <div class="control-group span6">
+                        <div id="datepicker-parking">
+                        </div>
+                    </div>
+                    <div class="control-group span6" id="nombres-parking">
+                        <div class="row-fluid">
+                            <table class="table table-hover" id="tabla-parking">
+                                <tbody>
+                                <tr>
+                                    <td class="text-center"><a class="btn-link"
+                                                               onclick="movimiento(plaza1)"
+                                                               id="plaza1" plaza="1">Libre</a>
+                                        <input type="hidden" id="idPersonaPlaza1"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-center"><a class="btn-link" id="plaza2"
+                                                               onclick="movimiento(plaza2)"
+                                                               plaza="2">Libre</a>
+                                        <input type="hidden" id="idPersonaPlaza2"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-center"><a class="btn-link" id="plaza3"
+                                                               onclick="movimiento(plaza3)"
+                                                               plaza="3">Libre</a>
+                                        <input type="hidden" id="idPersonaPlaza3"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-center"><a class="btn-link" id="plaza4"
+                                                               onclick="movimiento(plaza4)"
+                                                               plaza="4">Libre</a>
+                                        <input type="hidden" id="idPersonaPlaza4"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-center"><a class="btn-link" id="plaza5"
+                                                               onclick="movimiento(plaza5)"
+                                                               plaza="5">Libre</a>
+                                        <input type="hidden" id="idPersonaPlaza5"/>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="text-center"><a class="btn-link" id="plaza6"
+                                                               onclick="movimiento(plaza6)"
+                                                               plaza="6">Libre</a>
+                                        <input type="hidden" id="idPersonaPlaza6"/>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                            <div class="table table-hover" id="tabla-parking-weekend">
+                                Fin de Semana
+                            </div>
+                            <div class="table table-hover" id="tabla-parking-no-select">
+                                Por favor, seleccione un día
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="span12">
+                    <div class="row-fluid">
+                        <div id="header-sorteo">
+                            <h3>Sorteo</h3>
+                        </div>
+                        <div id="concursantes-tabla-parking">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- container-fluid -->
+
+    </div>
+
+    <div class="modal-footer">
+
+        <button id="btnSalirSorteo" class="btn btn-mini btn-primary" aria-hidden="true"
+                onClick="salirDelSorteo()">Salir del sorteo
+        </button>
+        <button id="btnInscripcionSorteo" class="btn btn-mini btn-primary" aria-hidden="true"
+                onClick="inscripcionSorteo()">Inscribirse al sorteo
+        </button>
+
+        <button class="btn btn-mini" data-dismiss="modal" aria-hidden="true">Cerrar</button>
+    </div>
+</div>
+
+<!-- FINAL MODAL PARKING -->
+
+<!-- MODAL INSERTA PLAZA PARKING -->
+
+
+<div id="modal-reserva-parking" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true">
+
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3><b>Reservar plaza de parking</b></h3>
+    </div>
+
+    <div class="modal-body">
+        <div class="container-fluid">
+            <form autocomplete="off" class="form-horizontal" id="formPersonaConsulta">
+                <input id="idPersonaConsulta" name="idPersonaConsulta" type="hidden"/>
+                <input id="nombrePersonaConsulta" type="text" class="span4 typeaheadConsulta"
+                       placeholder="Nombre"/>
+            </form>
+            <button id="btnReservaParking" class="btn btn-small btn-primary" data-dismiss="modal"
+                    aria-hidden="true" onClick="reservaParking()">Reservar
+            </button>
+        </div>
+        <!-- container-fluid -->
+
+    </div>
+
+</div>
+
+<!-- FINAL MODAL INSERTA PARKING -->
+
+
+<!-- FORMULARIO JSON APERTURA/CIERRE -->
+
+<form id="form-apertura-cierre" class="hidden"></form>
+
+<!-- FINAL FORMULARIO JSON APERTURA/CIERRE -->
+
+<!-- MODAL PARTES DE TRABAJO -->
+
+<!-- Modal de crear informe -->
+<div id="modal-partes-trabajo" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true">
+
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3>Obtener informe</h3>
+    </div>
+
+    <div class="modal-body">
+        <form id="form-informe-partesTrabajo" method="post"
+              class="form-horizontal well well-sin-padding"
+              action='/chinpun/fichajes/partes-trabajo/generarInforme'>
+            <div class="row-fluid">
+                <div class="control-group">
+                    <label class="control-label label-mini"><strong>Proyecto</strong></label>
+
+                    <div class="controls">
+
+
+                        <input id="role" type="hidden" value="sinPermisos"/>
+                        <select class="span8" id="idProyecto-modalPartes" name="idProyecto">
+                        </select>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="row-fluid">
+                <div class="control-group">
+                    <label class="control-label label-mini"><strong>Persona</strong></label>
+
+                    <div class="controls">
+
+                        <select class="span8" name="idPersona" disabled>
+                            <option value="91">Jesús de Mula Cano</option>
+                        </select>
+                        <input type="hidden" value="91" id="idPersona-modalPartes"
+                               name="idPersona"/>
+
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="row-fluid">
+                <div class="control-group">
+                    <label class="control-label label-mini"><strong>Año</strong></label>
+
+                    <div class="controls">
+                        <div>
+                            <div class="btn-group">
+                                <button type="button" class="btn"
+                                        onclick="cambioAnnoPartesTrabajo(-1)">
+                                    <i class="icon-chevron-left"></i>
+                                </button>
+                                <button type="button" id="anyo-modalPartes" class="btn">2013
+                                </button>
+                                <button type="button" class="btn"
+                                        onclick="cambioAnnoPartesTrabajo(+1)">
+                                    <i class="icon-chevron-right"></i>
+                                </button>
+                                <input type="hidden" name="anno" id="in-anno-modalPartes"
+                                       value="2013">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row-fluid">
+                <div class="control-group">
+                    <label class="control-label label-mini"><strong>Meses</strong></label>
+
+                    <div class="controls">
+                        <label class="radio"> <input type="radio" name="oR" id="oR1" value="1"
+                                                     onclick="$('#meses-modalPartes').hide('slow')"
+                                                     checked>
+                            Todos los Meses
+                        </label>
+                        <label class="radio"> <input type="radio" name="oR" id="oR2" value="2"
+                                                     onclick="$('#meses-modalPartes').show()">
+                            Seleccionar meses
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row-fluid" id="meses-modalPartes" style="display:none">
+                <div class="span11 offset1">
+                    <div class="row-fluid">
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox1' value="0">Enero</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox2' value="1">Febrero</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox3' value="2">Marzo</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox3' value="3">Abril</label>
+                    </div>
+                    <div class="row-fluid">
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox1' value="4">Mayo</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox2' value="5">Junio</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox3' value="6">Julio</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox3' value="7">Agosto</label>
+                    </div>
+                    <div class="row-fluid">
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox1' value="8">Septiembre</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox2' value="9">Octubre</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox3' value="10">Noviembre</label>
+                        <label class='checkbox inline span3'><input type='checkbox'
+                                                                    id='inlineCheckbox3' value="11">Diciembre</label>
+                    </div>
+                    <div class="row-fluid">
+                        <input type="hidden" name="meses" value="">
+                    </div>
+                </div>
+                <div class="row-fluid"></div>
+                <br>
+            </div>
+        </form>
+
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-mini btn-primary" onclick="enviarFormularioPartes()">
+            Crear Informe
+        </button>
+        <button type="button" class="btn btn-mini" data-dismiss="modal" aria-hidden="true">Cerrar
+        </button>
+    </div>
+</div>
+
+<!-- FINAL MODAL PARTES DE TRABAJO -->
+
+
+<div id="modal-insertar-tarea-fs" class="modal hide fade" tabindex="-1" role="dialog"
+     aria-labelledby="myModalLabel" aria-hidden="true" style="margin-top:-350px;">
+
+    <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true"
+                onclick="resetValidacion(validadorInsertarTareFs)">×
+        </button>
+        <h3 id="titulo-modal-tarea-fs"></h3>
+    </div>
+
+    <div id="modal-tarea-fs" class="modal-body modal-body-sin-padding">
+        <div class="container-fluid">
+            <form id="tarea-modal-fs" class="form-horizontal well well-sin-padding"
+                  action="/chinpun/welcome" method="POST">
+                <input id="idTarea" name="idTarea" type="hidden" value=""/>
+
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Nombre Tarea</label>
+
+                        <div class="controls">
+                            <input id="nombreModal" name="nombre" placeholder="Nombre"
+                                   class="input span10" type="text" value=""/>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Proyecto</label>
+
+                        <div class="controls">
+                            <select id="selectProyectoModal-fs" name="proyecto.idProyecto"
+                                    class="span10">
+                                <option value="">Seleccione un Proyecto</option>
+                                <option value="357">Acciona Shifts</option>
+                                <option value="336">CHINPUN 3.0</option>
+                                <option value="1">OTROS</option>
+                                <option value="324">Papyrus</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Hito</label>
+
+                        <div id="contenedorHitosModal-fs" class="controls">
+                            <select id="selectHitoModal-fs" name="hito.idHito" class="span10"
+                                    disabled="disabled">
+                                <option id="primera-opcion-hito-modal-fs" value="">Seleccione un
+                                    Hito
+                                </option>
+
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Incluir en Parte</label>
+
+                        <div id="contenedorPartesModal-fs" class="controls">
+                            <select id="selectParteModal-fs" name="parteTrabajo.idParteTrabajo"
+                                    class="span10">
+                                <option id="primera-opcion-parte-modal" value="">Seleccione un
+                                    Parte
+                                </option>
+
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Tipo Tarea</label>
+
+                        <div class="controls">
+                            <select id="selectTipoModal-fs" name="tipoTarea.idTipoTarea"
+                                    class="span10">
+                                <option value="">Seleccione un Tipo</option>
+                                <option value="3">Adaptativo</option>
+                                <option value="1">Correctivo</option>
+                                <option value="5">Correctivo Soporte</option>
+                                <option value="2">Evolutivo</option>
+                                <option value="4">Evolutivo Soporte</option>
+                                <option value="7">Gesti&oacute;n</option>
+                                <option value="0">Modulo</option>
+                                <option value="6">Ret&eacute;n</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Valoración</label>
+
+                        <div class="controls">
+                            <div class="input-append">
+                                <input id="horasOfertadas" name="horasOfertadas"
+                                       class="span6 input-editable" type="text" value=""/>
+                                <span class="add-on">horas</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Estado</label>
+
+                        <div class="controls">
+                            <select id="selectEstadoModal-fs" name="estadoTarea.idEstadoTarea"
+                                    class="span10">
+                                <option value="1">Pendiente</option>
+                                <option value="2">En curso</option>
+                                <option value="3">Terminada</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini">Número Pedido</label>
+
+                        <div class="controls">
+                            <input id="numPedido" name="numPedido"
+                                   placeholder="N&uacute;mero de Pedido" name="numPedido"
+                                   class="input span10" type="text" value=""/>
+                        </div>
+                    </div>
+                </div>
+                <div class="row-fluid">
+                    <div class="control-group">
+                        <label class="control-label label-mini"
+                               for="descripcion">Descripción</label>
+
+                        <div class="controls">
+                            <textarea id="descripcion" name="descripcion"
+                                      placeholder="Descripci&oacute;n" class="span10"
+                                      rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button class="btn btn-mini btn-primary" onclick="insertarTareaFinSesion()">Guardar</button>
+        <button class="btn btn-mini" data-dismiss="modal" aria-hidden="true"
+                onclick="resetValidacion(validadorInsertarTareFs)">Cerrar
+        </button>
+    </div>
+
+</div>
+
+<script text="type/javascript">
+var validadorInsertarTareFs;
+$(document).ready(function() {
+	$('#selectEstadoModal-fs').change(function() {
+		habilitarParteFs();
+	});
+
+	habilitarParteFs();
+
+	validadorInsertarTareFs =$("#tarea-modal-fs").validate({
+		rules:{
+			"nombre":{requiredParam: '"Nombre"', comprobarNombreTarea: true},
+			"proyecto.idProyecto":{requiredParam:'"Proyecto"'},
+			"tipoTarea.idTipoTarea":{requiredParam: '"Tipo de Tarea"'},
+			"estadoTarea.idEstadoTarea":{requiredParam:'"Estado"'},
+			"horasOfertadas":{comparaNumero:[0, 'mayor', false]}
+		},
+      	errorLabelContainer: "#validaciones div ul",
+      	wrapper: "li",
+		errorClass:"warning",
+		validClass:"valid",
+		highlight: function(element, errorClass, validClass) {
+            $(element).parents('.control-group:first').addClass("error").removeClass(validClass);
+        },
+        unhighlight: function(element, errorClass, validClass) {
+        	$(element).parents('.control-group:first').removeClass("error").addClass(validClass);
+        },
+	});
+});
+
+function habilitarParteFs(){
+	if($('#selectEstadoModal-fs').val() == 3){
+		$('#selectParteModal-fs').removeAttr('disabled');
+	}
+	else{
+		$('#selectParteModal-fs').attr('disabled', 'disabled');
+	}
+}
+
+</script>
+
+<!-- Javascript -->
+<!-- Placed at the end of the document so the pages load faster -->
+<script src="/chinpun/resources/js/jquery-1.8.3.js"></script>
+<script src="/chinpun/resources/js/jquery-ui-1.9.1.js"></script>
+<script src="/chinpun/resources/js/jquery.validate.js"></script>
+<script src="/chinpun/resources/js/jquery.validate.functions.js"></script>
+<script src="/chinpun/resources/js/jquery.validate.messages.js"></script>
+<script src="/chinpun/resources/js/funciones_chinpun.js"></script>
+<script type="text/javascript" charset="utf8"
+        src="/chinpun/resources/js/jquery.mousewheel.min.js"></script>
+<script type="text/javascript" charset="utf8"
+        src="/chinpun/resources/js/jquery.mCustomScrollbar.js"></script>
+<script src="//netdna.bootstrapcdn.com/twitter-bootstrap/2.1.1/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-transition.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-tooltip.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-popover.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-alert.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-modal.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-dropdown.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-scrollspy.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-tab.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-button.js"></script>
+<!--[if !IE]><!-->
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-collapse.js"></script>
+<!--<![endif]-->
+<script type="text/javascript" src="/chinpun/resources/js/bootstrap-carousel.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/funciones_chinpun.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/jquery.datatables.1.9.4.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/datatable-bootstrap.js"></script>
+<!-- fullCalendar -->
+<script charset="utf8" type="text/javascript"
+        src="/chinpun/resources/js/fullcalendar.min.js"></script>
+<!-- fin fullCalendar -->
+<script charset="utf8" type="text/javascript"
+        src="/chinpun/resources/js/bootstrap-typeahead.js"></script>
+<script type="text/javascript" charset="utf8"
+        src="/chinpun/resources/js/bootstrap-timepicker.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/highcharts.js"></script>
+<script type="text/javascript" src="/chinpun/resources/js/modules/exporting.js"></script>
+<!-- multiDatesPicker -->
+<script type="text/javascript" src="/chinpun/resources/js/jquery-ui.multidatespicker.js"></script>
+<!--fin multiDatesPicker -->
+<!-- maskedInput -->
+<script type="text/javascript" src="/chinpun/resources/js/jquery.maskedinput.min.js"></script>
+<!-- fin maskedInput -->
+<!-- ajaxfileupload -->
+<script type="text/javascript" src="/chinpun/resources/js/ajaxfileupload.js"></script>
+<!-- fin ajaxfileupload -->
+
+</body>
+
+
+</html>

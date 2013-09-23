@@ -14,19 +14,21 @@ repositories {
 
 android {
     compileSdkVersion 18
-    buildToolsVersion "18.0.0"
+    buildToolsVersion "18.1"
 
     defaultConfig {
-        minSdkVersion 7
+        minSdkVersion 9
         targetSdkVersion 16
 
         testPackageName "name.demula.chinpun.test"
         testInstrumentationRunner "android.test.InstrumentationTestRunner"
     }
 }
-
 dependencies {
-    compile 'com.android.support:support-v4:13.0.+'
+
+    compile 'com.android.support:appcompat-v7:18.0.+'
+    compile 'com.android.support:support-v4:18.0.+'
+
     //compile 'org.jsoup:jsoup:1.7.+'
     //compile 'com.squareup.dagger:dagger:1.0.1'
     //compile 'com.squareup.dagger:dagger-compiler:1.0.1'
